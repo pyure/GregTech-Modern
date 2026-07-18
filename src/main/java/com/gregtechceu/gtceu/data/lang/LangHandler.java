@@ -1359,6 +1359,33 @@ public class LangHandler {
         provider.add("gtceu.gui.machinemode.title", "Active Machine Mode");
         provider.add("gtceu.gui.machinemode", "Active Machine Mode: %s");
         provider.add("gtceu.gui.machinemode.tab_tooltip", "Change active Machine Mode");
+        provider.add("gtceu.power_distribution.title", "Power Distribution");
+        provider.add("gtceu.power_distribution.tuning", "Tuning");
+        provider.add("gtceu.power_distribution.tuning.tooltip_live", "%s PU — EU/t ×%s");
+        provider.add("gtceu.power_distribution.speed", "Machine Speed");
+        provider.add("gtceu.power_distribution.speed.tooltip_live",
+                "%s PU — Duration ×%s (before per-recipe tick rounding)");
+        provider.add("gtceu.power_distribution.primary", "Primary Output");
+        provider.add("gtceu.power_distribution.primary.tooltip_live_voided", "Primary output voided (0 PU)");
+        provider.add("gtceu.power_distribution.primary.tooltip_live_chance",
+                "%s PU — 50%% chance of primary output (not guaranteed)");
+        provider.add("gtceu.power_distribution.primary.tooltip_live_bonus", "%s PU — +%s%% guaranteed primary yield");
+        provider.add("gtceu.power_distribution.primary.tooltip_live_no_bonus",
+                "This machine's recipes have no Primary Output bonus");
+        provider.add("gtceu.power_distribution.byproduct", "Byproduct");
+        provider.add("gtceu.power_distribution.byproduct.tooltip", "Boosts chanced byproduct outputs above 2");
+        provider.add("gtceu.power_distribution.bar_tooltip.line1", "%s of %s PU allocated");
+        provider.add("gtceu.power_distribution.bar_tooltip.line2", "Must equal budget exactly for the recipe to run");
+        provider.add("gtceu.power_distribution.footer_tooltip.ready",
+                "Ready — budget exactly spent, recipe will run");
+        provider.add("gtceu.power_distribution.footer_tooltip.not_ready",
+                "Not Ready — under budget, allocate the remaining PU");
+        provider.add("gtceu.power_distribution.footer_tooltip.invalid",
+                "Invalid — over budget (should not happen through the UI)");
+        provider.add("gtceu.power_distribution.status", "%s / %s Units Spent (%s)");
+        provider.add("gtceu.power_distribution.status.ready", "Ready");
+        provider.add("gtceu.power_distribution.status.over_budget", "Over Budget");
+        provider.add("gtceu.power_distribution.status.unspent", "Not Ready");
         provider.add("gtceu.machine.available_recipe_map_1.tooltip", "Available Recipe Types: %s");
         provider.add("gtceu.machine.available_recipe_map_2.tooltip", "Available Recipe Types: %s, %s");
         provider.add("gtceu.machine.available_recipe_map_3.tooltip", "Available Recipe Types: %s, %s, %s");
@@ -1374,6 +1401,8 @@ public class LangHandler {
         provider.add("gtceu.gui.content.chance_tier_boost_minus", "Bonus Chance: -%s%%/tier");
         provider.add("gtceu.gui.content.chance_boosted", "Chance at Tier: %s%%");
         provider.add("gtceu.gui.content.chance_boosted_logic", "Chance at Tier: %s%% (%s)");
+        provider.add("gtceu.gui.content.chance_boosted_overflow", "Chance at Tier: %s× + %s%%");
+        provider.add("gtceu.gui.content.chance_boosted_overflow_exact", "Chance at Tier: %s× 100%%");
         provider.add("gtceu.gui.content.count_range", "%s-%sx");
         provider.add("gtceu.gui.content.fluid_range", "%s-%smB");
         provider.add("gtceu.gui.content.range", "%s-%s");

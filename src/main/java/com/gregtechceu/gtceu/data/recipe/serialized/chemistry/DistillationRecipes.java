@@ -77,7 +77,7 @@ public class DistillationRecipes {
                 .inputFluids(Water.getFluid(5))
                 .circuitMeta(5)
                 .outputFluids(DistilledWater.getFluid(5))
-                .duration(16).EUt(10).save(provider);
+                .duration(16).EUt(10).primaryBonusPercent(5).save(provider);
 
         DISTILLATION_RECIPES.recipeBuilder("distill_acetone")
                 .inputFluids(Acetone.getFluid(1000))

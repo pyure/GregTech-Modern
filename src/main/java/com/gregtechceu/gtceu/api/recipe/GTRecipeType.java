@@ -53,6 +53,16 @@ public class GTRecipeType implements RecipeType<GTRecipe> {
     @Getter
     @Setter
     private ChanceBoostFunction chanceFunction = ChanceBoostFunction.NONE;
+    /**
+     * Default Power Distribution "Primary Output" bonus rate (percent per PU above 2) for recipes of this type.
+     * {@code 0} means no bonus above baseline — safe default for recipe types that combine/split materials
+     * (composition/decomposition), where a >100% guaranteed output would let players duplicate material value.
+     * Individual recipes may override this via
+     * {@link com.gregtechceu.gtceu.data.recipe.builder.GTRecipeBuilder#primaryBonusPercent}.
+     */
+    @Getter
+    @Setter
+    private int primaryBonusPercentPerPU = 0;
     @Getter
     @Setter
     private GTRecipeTypeUI recipeUI = new GTRecipeTypeUI(this);

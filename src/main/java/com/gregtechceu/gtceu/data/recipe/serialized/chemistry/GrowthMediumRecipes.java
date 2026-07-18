@@ -76,6 +76,7 @@ public class GrowthMediumRecipes {
                 .circuitMeta(1)
                 .outputFluids(Mutagen.getFluid(100))
                 .cleanroom(CleanroomType.STERILE_CLEANROOM)
+                .primaryBonusPercent(5)
                 .save(provider);
 
         // Collagen

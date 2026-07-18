@@ -453,10 +453,11 @@ public final class OreRecipeHandler {
                 .recipeBuilder("centrifuge_" + material.getName() + "_dirty_dust_to_dust")
                 .inputItems(dustImpure, material)
                 .outputItems(dustStack)
-                .duration((int) (material.getMass() * 4)).EUt(24);
+                .duration((int) (material.getMass() * 4)).EUt(24)
+                .primaryBonusPercent(5);
 
         if (byproduct.hasProperty(PropertyKey.DUST)) {
-            builder.chancedOutput(TagPrefix.dust, byproduct, "1/9", 0);
+            builder.chancedYieldOutput(TagPrefix.dust, byproduct, "1/9");
         } else {
             builder.outputFluids(byproduct.getFluid(L / 9));
         }
@@ -503,9 +504,10 @@ public final class OreRecipeHandler {
         CENTRIFUGE_RECIPES.recipeBuilder("centrifuge_" + material.getName() + "_pure_dust_to_dust")
                 .inputItems(dustPure, material)
                 .outputItems(dustStack)
-                .chancedOutput(TagPrefix.dust, byproductMaterial, "1/9", 0)
+                .chancedYieldOutput(TagPrefix.dust, byproductMaterial, "1/9")
                 .duration(100)
                 .EUt(5)
+                .primaryBonusPercent(5)
                 .save(provider);
 
         ORE_WASHER_RECIPES.recipeBuilder("wash_" + material.getName() + "_pure_dust_to_dust")

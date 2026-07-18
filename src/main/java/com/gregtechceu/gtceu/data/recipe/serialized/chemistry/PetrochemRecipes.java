@@ -405,25 +405,25 @@ public class PetrochemRecipes {
                 .circuitMeta(1)
                 .inputFluids(Toluene.getFluid(30))
                 .outputFluids(LightFuel.getFluid(30))
-                .duration(160).EUt(24).save(provider);
+                .duration(160).EUt(24).primaryBonusPercent(5).save(provider);
 
         DISTILLERY_RECIPES.recipeBuilder("distill_heavy_fuel_to_toluene")
                 .circuitMeta(1)
                 .inputFluids(HeavyFuel.getFluid(10))
                 .outputFluids(Toluene.getFluid(4))
-                .duration(16).EUt(24).save(provider);
+                .duration(16).EUt(24).primaryBonusPercent(5).save(provider);
 
         DISTILLERY_RECIPES.recipeBuilder("distill_heavy_fuel_to_benzene")
                 .circuitMeta(2)
                 .inputFluids(HeavyFuel.getFluid(10))
                 .outputFluids(Benzene.getFluid(4))
-                .duration(16).EUt(24).save(provider);
+                .duration(16).EUt(24).primaryBonusPercent(5).save(provider);
 
         DISTILLERY_RECIPES.recipeBuilder("distill_heavy_fuel_to_phenol")
                 .circuitMeta(3)
                 .inputFluids(HeavyFuel.getFluid(20))
                 .outputFluids(Phenol.getFluid(5))
-                .duration(32).EUt(24).save(provider);
+                .duration(32).EUt(24).primaryBonusPercent(5).save(provider);
     }
 
     private static void lightlyCrack(Consumer<FinishedRecipe> provider, Material raw, Material hydroCracked,

@@ -13,6 +13,7 @@ import com.gregtechceu.gtceu.api.gui.fancy.IFancyConfiguratorButton;
 import com.gregtechceu.gtceu.api.gui.widget.GhostCircuitSlotWidget;
 import com.gregtechceu.gtceu.api.gui.widget.SlotWidget;
 import com.gregtechceu.gtceu.api.machine.fancyconfigurator.CircuitFancyConfigurator;
+import com.gregtechceu.gtceu.api.machine.fancyconfigurator.PowerDistributionConfigurator;
 import com.gregtechceu.gtceu.api.machine.feature.IFancyUIMachine;
 import com.gregtechceu.gtceu.api.machine.feature.IHasCircuitSlot;
 import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
@@ -66,11 +67,16 @@ public class SimpleTieredMachine extends WorkableTieredMachine
     @SaveField
     @SyncToClient
     public final AutoOutputTrait autoOutput;
+    @Getter
+    @SaveField
+    @SyncToClient
+    public PowerDistributionConfig powerDistribution;
 
     public SimpleTieredMachine(BlockEntityCreationInfo info, int tier, Int2IntFunction tankScalingFunction) {
         super(info, tier, tankScalingFunction);
 
         this.autoOutput = attachTrait(new AutoOutputTrait(List.of(exportItems), List.of(exportFluids)));
+        this.powerDistribution = PowerDistributionConfig.defaults(tier);
 
         this.chargerInventory = new CustomItemStackHandler() {
 
@@ -161,6 +167,8 @@ public class SimpleTieredMachine extends WorkableTieredMachine
         if (isCircuitSlotEnabled()) {
             configuratorPanel.attachConfigurators(new CircuitFancyConfigurator(circuitInventory.storage));
         }
+
+        configuratorPanel.attachConfigurators(new PowerDistributionConfigurator(this));
     }
 
     private IFancyConfigurator createAutoOutputFluidConfigurator() {

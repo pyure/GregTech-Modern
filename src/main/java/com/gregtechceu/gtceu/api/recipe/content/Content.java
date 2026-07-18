@@ -180,12 +180,19 @@ public class Content {
         graphics.pose().scale(0.5f, 0.5f, 1);
         var func = function == null ? ChanceBoostFunction.NONE : function;
         int chance = func.getBoostedChance(this, recipeTier, chanceTier);
-        float chanceFloat = 1f * chance / this.maxChance;
-        String percent = FormattingUtil.formatNumber2Places(100 * chanceFloat);
+        String s;
+        if (chance == 0) {
+            s = LocalizationUtils.format("gtceu.gui.content.chance_nc_short");
+        } else if (chance > this.maxChance) {
+            int guaranteed = chance / this.maxChance;
+            int remainder = chance % this.maxChance;
+            s = remainder == 0 ? guaranteed + "×100%" :
+                    guaranteed + "+" + FormattingUtil.formatNumber2Places(100f * remainder / this.maxChance) + "%";
+        } else {
+            s = FormattingUtil.formatNumber2Places(100f * chance / this.maxChance) + "%";
+        }
 
-        String s = chance == 0 ? LocalizationUtils.format("gtceu.gui.content.chance_nc_short") :
-                percent + "%";
-
+        float chanceFloat = (float) Math.min(chance, this.maxChance) / this.maxChance;
         int color = chance == 0 ? 0xFF0000 : GradientUtil.toRGB(Mth.lerp(chanceFloat, 29f, 167f), 100f, 50f);
         Font fontRenderer = Minecraft.getInstance().font;
         graphics.drawString(fontRenderer, s, (int) ((x + (width / 3f)) * 2 - fontRenderer.width(s) + 23),

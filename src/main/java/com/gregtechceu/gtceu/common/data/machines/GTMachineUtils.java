@@ -167,13 +167,15 @@ public class GTMachineUtils {
         return registerTieredMachines(registrate, name,
                 (info, tier) -> new SimpleTieredMachine(info, tier, tankScalingFunction), (tier, builder) -> {
                     if (hasPollutionDebuff) {
-                        builder.recipeModifiers(GTRecipeModifiers.ENVIRONMENT_REQUIREMENT
+                        builder.recipeModifiers(true, GTRecipeModifiers.ENVIRONMENT_REQUIREMENT
                                 .apply(GTMedicalConditions.CARBON_MONOXIDE_POISONING, 100 * tier),
-                                GTRecipeModifiers.OC_NON_PERFECT)
+                                GTRecipeModifiers.PD_AWARE_OC)
                                 .conditionalTooltip(defaultEnvironmentRequirement(),
                                         ConfigHolder.INSTANCE.gameplay.environmentalHazards);
                     } else {
-                        builder.recipeModifier(GTRecipeModifiers.OC_NON_PERFECT);
+                        // alwaysTryModifyRecipe=true: Power Distribution PUs can change mid-operation, so the
+                        // modifier must be recomputed every time a recipe restarts, not just once and cached.
+                        builder.recipeModifier(GTRecipeModifiers.PD_AWARE_OC, true);
                     }
                     return builder
                             .langValue("%s %s %s".formatted(VLVH[tier], toEnglishName(name), VLVT[tier]))

@@ -241,7 +241,7 @@ public class GTMachines {
                         case 3 -> 3;
                         default -> 4;
                     })
-                    .recipeModifier(GTRecipeModifiers.OC_NON_PERFECT)
+                    .recipeModifier(GTRecipeModifiers.PD_AWARE_OC, true)
                     .workableTieredHullModel(GTCEu.id("block/machines/macerator"))
                     .tooltips(workableTiered(tier, GTValues.V[tier], GTValues.V[tier] * 64,
                             GTRecipeTypes.MACERATOR_RECIPES, defaultTankSizeFunction.applyAsInt(tier), true))
@@ -256,7 +256,7 @@ public class GTMachines {
                             GTRecipeTypes.ROCK_BREAKER_RECIPES))
                     .rotationState(RotationState.NON_Y_AXIS)
                     .recipeType(GTRecipeTypes.ROCK_BREAKER_RECIPES)
-                    .recipeModifier(GTRecipeModifiers.OC_NON_PERFECT)
+                    .recipeModifier(GTRecipeModifiers.PD_AWARE_OC, true)
                     .workableTieredHullModel(GTCEu.id("block/machines/rock_crusher"))
                     .tooltips(workableTiered(tier, GTValues.V[tier], GTValues.V[tier] * 64,
                             GTRecipeTypes.ROCK_BREAKER_RECIPES, defaultTankSizeFunction.applyAsInt(tier), true))
@@ -270,7 +270,7 @@ public class GTMachines {
                             GTRecipeTypes.AIR_SCRUBBER_RECIPES))
                     .rotationState(RotationState.NON_Y_AXIS)
                     .recipeType(GTRecipeTypes.AIR_SCRUBBER_RECIPES)
-                    .recipeModifier(GTRecipeModifiers.OC_NON_PERFECT)
+                    .recipeModifier(GTRecipeModifiers.PD_AWARE_OC, true)
                     .workableTieredHullModel(GTCEu.id("block/machines/air_scrubber"))
                     .tooltips(workableTiered(tier, GTValues.V[tier], GTValues.V[tier] * 64,
                             GTRecipeTypes.AIR_SCRUBBER_RECIPES, defaultTankSizeFunction.applyAsInt(tier), true))
