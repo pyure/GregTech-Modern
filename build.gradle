@@ -14,7 +14,8 @@ plugins {
 group = maven_group
 // Formats the mod version to include the loader, Minecraft version, and '-SNAPSHOT-<timestamp>' if enabled.
 boolean isSnapshot = System.getenv("SNAPSHOT")
-version = "${mod_version}" + (isSnapshot ? "-SNAPSHOT" : "")
+// Local fork naming (power_distribution_poc branch) — keep this line's own commit out of any future PR upstream.
+version = "${mod_version}.power_distribution_poc" + (isSnapshot ? "-SNAPSHOT" : "")
 boolean isCI = System.getenv("CI") != null
 
 java {
