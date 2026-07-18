@@ -23,6 +23,7 @@ import com.gregtechceu.gtceu.api.recipe.modifier.ModifierFunction;
 import com.gregtechceu.gtceu.api.recipe.modifier.ParallelLogic;
 import com.gregtechceu.gtceu.api.recipe.modifier.RecipeModifier;
 import com.gregtechceu.gtceu.common.capability.EnvironmentalHazardSavedData;
+import com.gregtechceu.gtceu.common.machine.trait.PowerDistributionTrait;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 
 import net.minecraft.Util;
@@ -71,7 +72,7 @@ public class GTRecipeModifiers {
             return ModifierFunction.cancel(Component.translatable("gtceu.recipe_modifier.insufficient_voltage"));
         }
 
-        PowerDistributionConfig pd = tieredMachine.getPowerDistribution();
+        PowerDistributionConfig pd = tieredMachine.getTrait(PowerDistributionTrait.TYPE).getPowerDistribution();
         int machineTier = tieredMachine.getTier();
 
         // The configurator UI already blocks over-budget dial changes; this is a defense-in-depth guard for
@@ -130,15 +131,15 @@ public class GTRecipeModifiers {
             RecipeCapability<?> cap = entry.getKey();
             List<Content> newList = new ArrayList<>();
             for (Content c : entry.getValue()) {
-                if (c.tierChanceBoost > 0 && c.chance < c.maxChance) {
+                if (c.tierChanceBoost() > 0 && c.chance() < c.maxChance()) {
                     changed = true;
-                    int newChance = c.chance + c.tierChanceBoost * yieldSlots;
-                    while (newChance >= c.maxChance) {
-                        newList.add(new Content(cap.copyContent(c.content), c.maxChance, c.maxChance, 0));
-                        newChance -= c.maxChance;
+                    int newChance = c.chance() + c.tierChanceBoost() * yieldSlots;
+                    while (newChance >= c.maxChance()) {
+                        newList.add(new Content(cap.copyContent(c.content()), c.maxChance(), c.maxChance(), 0));
+                        newChance -= c.maxChance();
                     }
                     if (newChance > 0) {
-                        newList.add(new Content(cap.copyContent(c.content), newChance, c.maxChance, 0));
+                        newList.add(new Content(cap.copyContent(c.content()), newChance, c.maxChance(), 0));
                     }
                 } else {
                     newList.add(c);
@@ -160,7 +161,7 @@ public class GTRecipeModifiers {
             RecipeCapability<?> cap = entry.getKey();
             List<Content> newList = new ArrayList<>();
             for (Content c : entry.getValue()) {
-                if (c.tierChanceBoost > 0 && c.chance < c.maxChance) {
+                if (c.tierChanceBoost() > 0 && c.chance() < c.maxChance()) {
                     changed = true;
                 } else {
                     newList.add(c);
@@ -191,8 +192,8 @@ public class GTRecipeModifiers {
             RecipeCapability<?> cap = entry.getKey();
             List<Content> newList = new ArrayList<>();
             for (Content c : entry.getValue()) {
-                boolean eligible = c.tierChanceBoost == 0 && !c.isChanced();
-                int amount = eligible ? getGuaranteedAmount(c.content) : 0;
+                boolean eligible = c.tierChanceBoost() == 0 && !c.isChanced();
+                int amount = eligible ? getGuaranteedAmount(c.content()) : 0;
                 if (eligible && amount > 0) {
                     changed = true;
                     double target = amount * multiplier;
@@ -203,7 +204,7 @@ public class GTRecipeModifiers {
                         newList.add(c.copy(cap, ContentModifier.multiplier(multiplier)));
                     }
                     if (remainder > 1e-6) {
-                        Object oneUnit = cap.copyContent(c.content, new ContentModifier(0, 1));
+                        Object oneUnit = cap.copyContent(c.content(), new ContentModifier(0, 1));
                         int chance = (int) Math.round(remainder * ChanceLogic.getMaxChancedValue());
                         newList.add(new Content(oneUnit, chance, ChanceLogic.getMaxChancedValue(), 0));
                     }

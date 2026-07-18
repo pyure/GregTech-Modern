@@ -339,7 +339,7 @@ public class SeparationRecipes {
                 .inputItems(dust, Sphalerite, 2)
                 .outputItems(dust, Zinc)
                 .outputItems(dust, Sulfur)
-                .chancedOutput(dust, Gallium, 750, 0)
+                .chancedOutput(dust, Gallium, 750)
                 .duration(200).EUt(VA[LV]).save(provider);
 
         ELECTROLYZER_RECIPES.recipeBuilder("water_electrolysis")
@@ -544,7 +544,7 @@ public class SeparationRecipes {
 
         EXTRACTOR_RECIPES.recipeBuilder("wood_dust_extraction").duration(16).EUt(4)
                 .inputItems(dust, Wood)
-                .chancedOutput(PLANT_BALL.asStack(), 225, 0)
+                .chancedOutput(PLANT_BALL.asStack(), 225)
                 .outputFluids(Creosote.getFluid(5))
                 .save(provider);
 

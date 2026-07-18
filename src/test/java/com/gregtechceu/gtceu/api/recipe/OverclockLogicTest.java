@@ -8,10 +8,11 @@ import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.machine.PowerDistributionConfig;
 import com.gregtechceu.gtceu.api.machine.SimpleTieredMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.WorkableMultiblockMachine;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableEnergyContainer;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableEnergyContainer;
+import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableItemStackHandler;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
+import com.gregtechceu.gtceu.common.machine.trait.PowerDistributionTrait;
 import com.gregtechceu.gtceu.gametest.util.TestUtils;
 
 import net.minecraft.core.BlockPos;
@@ -119,12 +120,22 @@ public class OverclockLogicTest {
     private static BusHolder getBussesAndForm(GameTestHelper helper) {
         WorkableMultiblockMachine controller = (WorkableMultiblockMachine) helper.getBlockEntity(new BlockPos(1, 2, 0));
         assert controller != null;
-        TestUtils.formMultiblock(controller);
+        TestUtils.formMultiblock(helper, controller);
         controller.setRecipeType(LCR_RECIPE_TYPE);
         ItemBusPartMachine inputBus1 = (ItemBusPartMachine) helper.getBlockEntity(new BlockPos(2, 1, 0));
         ItemBusPartMachine inputBus2 = (ItemBusPartMachine) helper.getBlockEntity(new BlockPos(2, 2, 0));
         ItemBusPartMachine outputBus1 = (ItemBusPartMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         return new BusHolder(inputBus1, inputBus2, outputBus1, controller);
+    }
+
+    /** {@code powerDistribution} now lives on {@link PowerDistributionTrait}, not directly on the machine. */
+    private static void setPowerDistribution(SimpleTieredMachine machine, int tuningPU, int speedPU, int primaryPU,
+                                             int byproductPU) {
+        PowerDistributionConfig pd = machine.getTrait(PowerDistributionTrait.TYPE).getPowerDistribution();
+        pd.setTuningPU(tuningPU);
+        pd.setSpeedPU(speedPU);
+        pd.setPrimaryPU(primaryPU);
+        pd.setByproductPU(byproductPU);
     }
 
     // Test for running HV recipe at HV
@@ -385,7 +396,7 @@ public class OverclockLogicTest {
         SimpleTieredMachine machine = (SimpleTieredMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         assert machine != null;
         machine.setRecipeType(CR_RECIPE_TYPE);
-        machine.powerDistribution = new PowerDistributionConfig(2, 2, 6, 6);
+        setPowerDistribution(machine, 2, 2, 6, 6);
         NotifiableEnergyContainer energyContainer = (NotifiableEnergyContainer) machine
                 .getCapabilitiesFlat(IO.IN, EURecipeCapability.CAP).get(0);
         NotifiableItemStackHandler itemIn = (NotifiableItemStackHandler) machine
@@ -421,7 +432,7 @@ public class OverclockLogicTest {
         SimpleTieredMachine machine = (SimpleTieredMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         assert machine != null;
         machine.setRecipeType(CR_RECIPE_TYPE);
-        machine.powerDistribution = new PowerDistributionConfig(7, 7, 2, 0);
+        setPowerDistribution(machine, 7, 7, 2, 0);
         NotifiableEnergyContainer energyContainer = (NotifiableEnergyContainer) machine
                 .getCapabilitiesFlat(IO.IN, EURecipeCapability.CAP).get(0);
         NotifiableItemStackHandler itemIn = (NotifiableItemStackHandler) machine
@@ -455,7 +466,7 @@ public class OverclockLogicTest {
         SimpleTieredMachine machine = (SimpleTieredMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         assert machine != null;
         machine.setRecipeType(CR_RECIPE_TYPE);
-        machine.powerDistribution = new PowerDistributionConfig(0, 2, 7, 7);
+        setPowerDistribution(machine, 0, 2, 7, 7);
         NotifiableEnergyContainer energyContainer = (NotifiableEnergyContainer) machine
                 .getCapabilitiesFlat(IO.IN, EURecipeCapability.CAP).get(0);
         NotifiableItemStackHandler itemIn = (NotifiableItemStackHandler) machine
@@ -490,7 +501,7 @@ public class OverclockLogicTest {
         SimpleTieredMachine machine = (SimpleTieredMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         assert machine != null;
         machine.setRecipeType(CR_RECIPE_TYPE);
-        machine.powerDistribution = new PowerDistributionConfig(6, 6, 2, 2);
+        setPowerDistribution(machine, 6, 6, 2, 2);
         NotifiableEnergyContainer energyContainer = (NotifiableEnergyContainer) machine
                 .getCapabilitiesFlat(IO.IN, EURecipeCapability.CAP).get(0);
         NotifiableItemStackHandler itemIn = (NotifiableItemStackHandler) machine
@@ -521,7 +532,7 @@ public class OverclockLogicTest {
         SimpleTieredMachine machine = (SimpleTieredMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         assert machine != null;
         machine.setRecipeType(CR_RECIPE_TYPE);
-        machine.powerDistribution = new PowerDistributionConfig(7, 7, 2, 0);
+        setPowerDistribution(machine, 7, 7, 2, 0);
         NotifiableEnergyContainer energyContainer = (NotifiableEnergyContainer) machine
                 .getCapabilitiesFlat(IO.IN, EURecipeCapability.CAP).get(0);
         NotifiableItemStackHandler itemIn = (NotifiableItemStackHandler) machine

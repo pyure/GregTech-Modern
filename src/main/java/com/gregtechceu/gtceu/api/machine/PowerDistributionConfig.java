@@ -5,8 +5,10 @@ import net.minecraftforge.common.util.INBTSerializable;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
+@Setter
 @AllArgsConstructor
 public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
 
