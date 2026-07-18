@@ -13,6 +13,7 @@ import com.gregtechceu.gtceu.api.gui.widget.GhostCircuitSlotWidget;
 import com.gregtechceu.gtceu.api.gui.widget.SlotWidget;
 import com.gregtechceu.gtceu.api.item.tool.GTToolType;
 import com.gregtechceu.gtceu.api.machine.fancyconfigurator.CircuitFancyConfigurator;
+import com.gregtechceu.gtceu.api.machine.fancyconfigurator.PowerDistributionConfigurator;
 import com.gregtechceu.gtceu.api.machine.feature.IAutoOutputBoth;
 import com.gregtechceu.gtceu.api.machine.feature.IFancyUIMachine;
 import com.gregtechceu.gtceu.api.machine.feature.IHasCircuitSlot;
@@ -108,6 +109,10 @@ public class SimpleTieredMachine extends WorkableTieredMachine
     protected TickableSubscription autoOutputSubs, batterySubs;
     @Nullable
     protected ISubscription exportItemSubs, exportFluidSubs, energySubs;
+    @Getter
+    @Persisted
+    @DescSynced
+    protected PowerDistributionConfig powerDistribution;
 
     public SimpleTieredMachine(IMachineBlockEntity holder, int tier, Int2IntFunction tankScalingFunction,
                                Object... args) {
@@ -116,6 +121,7 @@ public class SimpleTieredMachine extends WorkableTieredMachine
         this.outputFacingFluids = outputFacingItems;
         this.chargerInventory = createChargerItemHandler(args);
         this.circuitInventory = createCircuitItemHandler(args);
+        this.powerDistribution = PowerDistributionConfig.defaults(tier);
     }
 
     //////////////////////////////////////
@@ -337,6 +343,8 @@ public class SimpleTieredMachine extends WorkableTieredMachine
         if (isCircuitSlotEnabled()) {
             configuratorPanel.attachConfigurators(new CircuitFancyConfigurator(circuitInventory.storage));
         }
+
+        configuratorPanel.attachConfigurators(new PowerDistributionConfigurator(this));
     }
 
     private IFancyConfigurator createAutoOutputFluidConfigurator() {

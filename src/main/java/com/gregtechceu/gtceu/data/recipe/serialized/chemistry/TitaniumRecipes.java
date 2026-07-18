@@ -154,11 +154,11 @@ public class TitaniumRecipes {
         CENTRIFUGE_RECIPES.recipeBuilder("bauxite_sludge_centrifuge")
                 .inputFluids(DecalcifiedBauxiteSludge.getFluid(250))
                 .outputItems(dust, Rutile, 2)
-                .chancedOutput(dust, Gallium, 5000, 0)
-                .chancedOutput(dust, Gallium, 3000, 0)
-                .chancedOutput(dust, Gallium, 1000, 0)
-                .chancedOutput(dust, SiliconDioxide, 9000, 0)
-                .chancedOutput(dust, Iron, 8000, 0)
+                .chancedYieldOutput(dust, Gallium, 5000)
+                .chancedYieldOutput(dust, Gallium, 3000)
+                .chancedYieldOutput(dust, Gallium, 1000)
+                .chancedYieldOutput(dust, SiliconDioxide, 9000)
+                .chancedYieldOutput(dust, Iron, 8000)
                 .outputFluids(Water.getFluid(250))
                 .duration(100).EUt(VA[MV]).save(provider);
     }

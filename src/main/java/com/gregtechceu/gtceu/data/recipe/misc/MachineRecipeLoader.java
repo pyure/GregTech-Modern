@@ -486,13 +486,13 @@ public class MachineRecipeLoader {
                 .inputItems(dust, Paracetamol, 16)
                 .notConsumable(GTItems.SHAPE_MOLD_PILL)
                 .outputItems(GTItems.PARACETAMOL_PILL.asStack(16))
-                .duration(60).EUt(VA[LV]).save(provider);
+                .duration(60).EUt(VA[LV]).primaryBonusPercent(2).save(provider);
 
         CANNER_RECIPES.recipeBuilder("pack_rad_away")
                 .inputItems(dust, RadAway, 16)
                 .notConsumable(GTItems.SHAPE_MOLD_PILL)
                 .outputItems(GTItems.RAD_AWAY_PILL.asStack(16))
-                .duration(60).EUt(VA[LV]).save(provider);
+                .duration(60).EUt(VA[LV]).primaryBonusPercent(2).save(provider);
 
         ASSEMBLER_RECIPES.recipeBuilder("cover_shutter")
                 .inputItems(new ItemStack(Items.IRON_DOOR))

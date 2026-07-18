@@ -3,8 +3,6 @@ package com.gregtechceu.gtceu.api.recipe.chance.boost;
 import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 
-import net.minecraft.util.Mth;
-
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -20,7 +18,7 @@ public interface ChanceBoostFunction {
         int tierDiff = chanceTier - recipeTier;
         if (tierDiff <= 0) return entry.chance; // equal or invalid tiers do not boost at all
         if (recipeTier == GTValues.ULV) tierDiff--; // LV does not boost over ULV
-        return Mth.clamp(entry.chance + (entry.tierChanceBoost * tierDiff), 0, entry.maxChance);
+        return Math.max(0, entry.chance + (entry.tierChanceBoost * tierDiff));
     };
 
     /**

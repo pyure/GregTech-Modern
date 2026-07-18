@@ -27,5 +27,8 @@ public class RecipeLogicLang {
         provider.add("gtceu.recipe_modifier.insufficient_eu_to_start_fusion",
                 "Insufficient Energy to Initiate Fusion Reaction");
         provider.add("gtceu.recipe_modifier.coil_temperature_too_low", "Coil Temperature Too Low");
+        provider.add("gtceu.recipe_modifier.power_distribution_budget_not_exact",
+                "Power Distribution Budget Not Fully Allocated");
+        provider.add("gtceu.recipe_modifier.power_distribution_no_active_output", "No Active Output Selected");
     }
 }

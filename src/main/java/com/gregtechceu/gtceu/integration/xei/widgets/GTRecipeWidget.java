@@ -303,8 +303,6 @@ public class GTRecipeWidget extends WidgetGroup {
             } else {
                 float baseChanceFloat = 100f * content.chance / content.maxChance;
                 if (content.tierChanceBoost != 0) {
-                    float boostedChanceFloat = 100f * boostedChance / content.maxChance;
-
                     if (logic != ChanceLogic.NONE && logic != ChanceLogic.OR) {
                         tooltips.add(Component.translatable("gtceu.gui.content.chance_base_logic",
                                 FormattingUtil.formatNumber2Places(baseChanceFloat), logic.getTranslation())
@@ -320,11 +318,25 @@ public class GTRecipeWidget extends WidgetGroup {
                     tooltips.add(FormattingUtil.formatPercentage2Places(key,
                             Math.abs(100f * content.tierChanceBoost / content.maxChance)));
 
-                    if (logic != ChanceLogic.NONE && logic != ChanceLogic.OR) {
+                    if (boostedChance > content.maxChance) {
+                        int guaranteed = boostedChance / content.maxChance;
+                        int remainder = boostedChance % content.maxChance;
+                        String overflowStr = remainder ==
+                                0 ? Component.translatable("gtceu.gui.content.chance_boosted_overflow_exact",
+                                        guaranteed).getString() :
+                                        Component.translatable("gtceu.gui.content.chance_boosted_overflow",
+                                                guaranteed,
+                                                FormattingUtil
+                                                        .formatNumber2Places(100f * remainder / content.maxChance))
+                                                .getString();
+                        tooltips.add(Component.literal(overflowStr).withStyle(ChatFormatting.YELLOW));
+                    } else if (logic != ChanceLogic.NONE && logic != ChanceLogic.OR) {
+                        float boostedChanceFloat = 100f * boostedChance / content.maxChance;
                         tooltips.add(Component.translatable("gtceu.gui.content.chance_boosted_logic",
                                 FormattingUtil.formatNumber2Places(boostedChanceFloat), logic.getTranslation())
                                 .withStyle(ChatFormatting.YELLOW));
                     } else {
+                        float boostedChanceFloat = 100f * boostedChance / content.maxChance;
                         tooltips.add(
                                 FormattingUtil.formatPercentage2Places("gtceu.gui.content.chance_boosted",
                                         boostedChanceFloat));

@@ -866,6 +866,37 @@ public class GTRecipeBuilder {
         return chancedOutput(item, 1, fraction, tierChanceBoost);
     }
 
+    // chancedYieldOutput — marks an output as yield-eligible (boostPerSlot > 0).
+    // The PD_AWARE_OC modifier will boost these outputs for each yield PU (Primary/Byproduct above 2).
+
+    public GTRecipeBuilder chancedYieldOutput(ItemStack stack, int chance, int boostPerSlot) {
+        return chancedOutput(SizedIngredient.create(stack), chance, boostPerSlot);
+    }
+
+    public GTRecipeBuilder chancedYieldOutput(ItemStack stack, int chance) {
+        return chancedYieldOutput(stack, chance, 200);
+    }
+
+    public GTRecipeBuilder chancedYieldOutput(TagPrefix tag, Material mat, int chance, int boostPerSlot) {
+        return chancedOutput(ChemicalHelper.get(tag, mat), chance, boostPerSlot);
+    }
+
+    public GTRecipeBuilder chancedYieldOutput(TagPrefix tag, Material mat, int chance) {
+        return chancedYieldOutput(tag, mat, chance, 200);
+    }
+
+    public GTRecipeBuilder chancedYieldOutput(TagPrefix tag, Material mat, int count, int chance, int boostPerSlot) {
+        return chancedOutput(ChemicalHelper.get(tag, mat, count), chance, boostPerSlot);
+    }
+
+    public GTRecipeBuilder chancedYieldOutput(TagPrefix tag, Material mat, String fraction, int boostPerSlot) {
+        return chancedOutput(tag, mat, fraction, boostPerSlot);
+    }
+
+    public GTRecipeBuilder chancedYieldOutput(TagPrefix tag, Material mat, String fraction) {
+        return chancedYieldOutput(tag, mat, fraction, 200);
+    }
+
     public GTRecipeBuilder chancedFluidOutput(FluidStack stack, String fraction, int tierChanceBoost) {
         if (stack.isEmpty()) {
             return this;
@@ -1076,6 +1107,14 @@ public class GTRecipeBuilder {
 
     public GTRecipeBuilder blastFurnaceTemp(int blastTemp) {
         return addData("ebf_temp", blastTemp);
+    }
+
+    /**
+     * Overrides this recipe's Power Distribution "Primary Output" bonus rate (percent per PU above 2),
+     * regardless of its {@link com.gregtechceu.gtceu.api.recipe.GTRecipeType}'s default.
+     */
+    public GTRecipeBuilder primaryBonusPercent(int pct) {
+        return addData("primary_bonus_pct", pct);
     }
 
     public GTRecipeBuilder explosivesAmount(int explosivesAmount) {

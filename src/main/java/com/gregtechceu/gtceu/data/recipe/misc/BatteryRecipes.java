@@ -329,7 +329,7 @@ public class BatteryRecipes {
                 .notConsumable(lens, Color.Blue)
                 .outputItems(ENGRAVED_LAPOTRON_CHIP, 3)
                 .cleanroom(CleanroomType.CLEANROOM)
-                .duration(256).EUt(VA[HV]).save(provider);
+                .duration(256).EUt(VA[HV]).primaryBonusPercent(2).save(provider);
 
         CIRCUIT_ASSEMBLER_RECIPES.recipeBuilder("lapotronic_energy_orb")
                 .inputItems(EXTREME_CIRCUIT_BOARD)
