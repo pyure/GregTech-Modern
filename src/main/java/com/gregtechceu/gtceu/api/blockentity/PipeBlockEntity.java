@@ -98,6 +98,11 @@ public abstract class PipeBlockEntity<PipeType extends Enum<PipeType> & IPipeTyp
     // ***** Initialization ******//
     //////////////////////////////////////
     @Override
+    public Level getGtLevel() {
+        return getLevel();
+    }
+
+    @Override
     public long getOffsetTimer() {
         return level == null ? offset : (level.getServer().getTickCount() + offset);
     }

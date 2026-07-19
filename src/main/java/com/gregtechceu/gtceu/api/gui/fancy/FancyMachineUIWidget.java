@@ -210,8 +210,12 @@ public class FancyMachineUIWidget extends WidgetGroup {
                 (pageContainer.getSize().width - page.getSize().width) / 2,
                 (pageContainer.getSize().height - page.getSize().height) / 2));
         fancyUI.attachConfigurators(configuratorPanel);
-        configuratorPanel
-                .setSelfPosition(new Position(-24 - 2, getGui().getHeight() - configuratorPanel.getSize().height - 4));
+        // Keep the configurator button column from riding up into the side tabs (mainTab + subtabs)
+        // when a machine has enough configurators to make the column taller than the GUI has room for.
+        int sideTabsBottom = 8 + 24 * (1 + sideTabsWidget.getSubTabs().size());
+        int configuratorPanelY = Math.max(sideTabsBottom + 2,
+                getGui().getHeight() - configuratorPanel.getSize().height - 4);
+        configuratorPanel.setSelfPosition(new Position(-24 - 2, configuratorPanelY));
         fancyUI.attachTooltips(tooltipsPanel);
 
         titleBar.setSize(new Size(this.getSize().width, titleBar.getSize().height));
