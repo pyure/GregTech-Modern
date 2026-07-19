@@ -128,7 +128,7 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
 
         return new ButtonWidget<>()
                 .size(18)
-                .overlay(UITexture.fullImage(GTCEu.MOD_ID, "textures/gui/icon/speedometer.png"))
+                .overlay(UITexture.fullImage(GTCEu.MOD_ID, "textures/gui/icon/power_distribution_capacitor.png"))
                 .onMousePressed((context, button) -> {
                     panelHandler.togglePanel();
                     return true;
