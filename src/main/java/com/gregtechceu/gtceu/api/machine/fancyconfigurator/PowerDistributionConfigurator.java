@@ -94,7 +94,7 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
 
     @Override
     public IGuiTexture getIcon() {
-        return new ResourceTexture("gtceu:textures/gui/icon/speedometer.png");
+        return new ResourceTexture("gtceu:textures/gui/icon/power_distribution_capacitor.png");
     }
 
     @Override
