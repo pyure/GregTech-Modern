@@ -40,7 +40,6 @@ import com.mojang.datafixers.util.Pair;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.UnknownNullability;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,8 +102,8 @@ public abstract class PipeBlockEntity<PipeType extends Enum<PipeType> & IPipeTyp
     }
 
     @Override
-    public @UnknownNullability Level getLevel() {
-        return super.getLevel();
+    public Level getGtLevel() {
+        return getLevel();
     }
 
     @Override

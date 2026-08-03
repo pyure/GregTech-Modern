@@ -612,8 +612,9 @@ public class MetaMachine extends ManagedSyncBlockEntity implements IGregtechBloc
         return null;
     }
 
-    public @UnknownNullability Level getLevel() {
-        return super.getLevel();
+    @Override
+    public Level getGtLevel() {
+        return getLevel();
     }
 
     @ApiStatus.Internal
