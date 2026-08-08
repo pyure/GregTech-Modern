@@ -72,7 +72,7 @@ public class GTRecipeModifiers {
             return ModifierFunction.cancel(Component.translatable("gtceu.recipe_modifier.insufficient_voltage"));
         }
 
-        PowerDistributionConfig pd = tieredMachine.getTrait(PowerDistributionTrait.TYPE).getPowerDistribution();
+        PowerDistributionConfig pd = tieredMachine.getTrait(PowerDistributionTrait.class).getPowerDistribution();
         int machineTier = tieredMachine.getTier();
 
         // The configurator UI already blocks over-budget dial changes; this is a defense-in-depth guard for

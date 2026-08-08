@@ -131,7 +131,7 @@ public class OverclockLogicTest {
     /** {@code powerDistribution} now lives on {@link PowerDistributionTrait}, not directly on the machine. */
     private static void setPowerDistribution(SimpleTieredMachine machine, int tuningPU, int speedPU, int primaryPU,
                                              int byproductPU) {
-        PowerDistributionConfig pd = machine.getTrait(PowerDistributionTrait.TYPE).getPowerDistribution();
+        PowerDistributionConfig pd = machine.getTrait(PowerDistributionTrait.class).getPowerDistribution();
         pd.setTuningPU(tuningPU);
         pd.setSpeedPU(speedPU);
         pd.setPrimaryPU(primaryPU);

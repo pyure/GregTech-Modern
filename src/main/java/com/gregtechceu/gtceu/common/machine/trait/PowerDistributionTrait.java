@@ -4,7 +4,6 @@ import com.gregtechceu.gtceu.GTCEu;
 import com.gregtechceu.gtceu.api.machine.PowerDistributionConfig;
 import com.gregtechceu.gtceu.api.machine.feature.IRecipeLogicMachine;
 import com.gregtechceu.gtceu.api.machine.trait.MachineTrait;
-import com.gregtechceu.gtceu.api.machine.trait.MachineTraitType;
 import com.gregtechceu.gtceu.api.machine.trait.feature.IAttachConfiguratorsTrait;
 import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 
@@ -48,9 +47,6 @@ import java.util.function.Supplier;
  * absolutely-positioned element instead).
  */
 public class PowerDistributionTrait extends MachineTrait implements IAttachConfiguratorsTrait {
-
-    public static final MachineTraitType<PowerDistributionTrait> TYPE = new MachineTraitType<>(
-            PowerDistributionTrait.class);
 
     // GTCEu Teal palette — exact values from the design handoff's THEMES['2b'] entry.
     private static final int COLOR_BORDER = 0xFF0C1416;
@@ -110,11 +106,6 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
     public PowerDistributionTrait(int tier) {
         this.tier = tier;
         this.powerDistribution = PowerDistributionConfig.defaults(tier);
-    }
-
-    @Override
-    public MachineTraitType<PowerDistributionTrait> getTraitType() {
-        return TYPE;
     }
 
     @Override
