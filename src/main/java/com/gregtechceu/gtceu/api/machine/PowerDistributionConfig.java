@@ -15,9 +15,27 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
     private static final String NBT_PRIMARY = "primaryPU";
     private static final String NBT_BYPRODUCT = "byproductPU";
 
-    /** Speed/Tuning curve factors: each Speed step past baseline cuts duration by this fraction. */
-    private static final double DURATION_CUT = 0.75;
-    /** Floors the EU/t multiplier at 2^EU_DELTA_FLOOR (12.5% of base at the default -3). */
+    /**
+     * Speed/Tuning curve factor for the "matched" portion of Speed — PU up to tuningPU, i.e. the free/balanced
+     * tier climb. Two steps land per tier (tierDefault = 2×tier), so this compounds to {@code DURATION_CUT^2}
+     * duration per tier at the default balanced climb — sqrt(0.88) makes that per-tier figure exactly 88% (was
+     * ~56.25% at the old 0.75). Also governs PU below the 2-PU baseline (stretch, in reverse) regardless of
+     * Tuning. See {@link #OC_CUT} for PU pushed past tuningPU (true overclock).
+     */
+    private static final double DURATION_CUT = Math.sqrt(0.88);
+    /**
+     * Duration curve factor for the "excess" portion of Speed — PU pushed past tuningPU, i.e. deliberate
+     * overclock rather than the free climb. {@code 1/sqrt(2)} so that 2 excess PU exactly halves duration —
+     * matching vanilla GT's own single-OC-step duration factor exactly, since a vanilla OC step is the anchor
+     * this lane is built to reproduce. See {@link #euMultiplier} for the matching EU-side relationship
+     * ({@code 1/excessFactor^2}, also vanilla's own OC relationship) that pairs with this.
+     */
+    private static final double OC_CUT = 1.0 / Math.sqrt(2);
+    /**
+     * Floors the efficiency lane's (Tuning ahead of Speed) EU/t discount at 2^EU_DELTA_FLOOR (12.5% of base at
+     * the default -3). Vanilla has no equivalent mechanic to anchor this lane to, so it's independent of
+     * {@link #OC_CUT}/{@link #DURATION_CUT} and untouched by the vanilla-matching rework of the overclock lane.
+     */
     private static final double EU_DELTA_FLOOR = -3;
     /** 1 tick @ 20 tps — duration can never be reduced below this regardless of Speed. */
     private static final long MIN_DURATION_TICKS = 1;
@@ -60,28 +78,61 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
         return Math.max(primaryPU, byproductPU) >= 1;
     }
 
+    /** Unfloored duration factor from the matched (Speed≤Tuning) portion of Speed alone. */
+    private double matchedDurationFactor() {
+        return Math.pow(DURATION_CUT, Math.min(speedPU, tuningPU) - 2);
+    }
+
+    /** Unfloored duration factor from the excess (Speed&gt;Tuning, true overclock) portion of Speed alone. */
+    private double excessDurationFactor() {
+        return Math.pow(OC_CUT, Math.max(0, speedPU - tuningPU));
+    }
+
     /**
-     * Duration multiplier from Speed alone: each PU above the 2-PU baseline cuts duration by
-     * {@link #DURATION_CUT}, each PU below stretches it by the same factor in reverse. Floored so the
-     * final duration never drops below {@link #MIN_DURATION_TICKS}; the returned ratio reflects that
-     * floor exactly, so callers combining this with {@link #euMultiplier} stay consistent with it.
+     * Duration multiplier from Speed alone: PU up to tuningPU (the "matched" portion, including all PU below
+     * the 2-PU baseline, which stretch duration in reverse the same way regardless of Tuning) cut duration by
+     * {@link #DURATION_CUT} each; PU past tuningPU (true overclock) cut it by the steeper {@link #OC_CUT}
+     * instead. Floored so the final duration never drops below {@link #MIN_DURATION_TICKS}. {@link #euMultiplier}
+     * computes its own cancellation from the unfloored per-lane factors above rather than from this floored
+     * ratio, so the two can diverge slightly right at the floor — not exact in that edge case, same tolerance
+     * the tick-rounding already accepted before this change.
      */
     public double durationMultiplier(long baseDurationTicks) {
-        double rawDuration = baseDurationTicks * Math.pow(DURATION_CUT, speedPU - 2);
+        double rawDuration = baseDurationTicks * matchedDurationFactor() * excessDurationFactor();
         long duration = Math.max(MIN_DURATION_TICKS, Math.round(rawDuration));
         return duration / (double) baseDurationTicks;
     }
 
     /**
-     * EU/t multiplier: a "matched" component that exactly offsets {@link #durationMultiplier} (so a
-     * balanced Speed=Tuning climb leaves total EU per craft unchanged) times an "imbalance" component
-     * that doubles per point of {@code speedPU - tuningPU}, floored at {@link #EU_DELTA_FLOOR}.
+     * Continuous (unfloored, no {@link #MIN_DURATION_TICKS} clamp) duration multiplier — same formula as
+     * {@link #durationMultiplier(long)} minus the per-recipe integer-tick rounding, for callers with no specific
+     * recipe/base-duration in hand (e.g. a GUI tooltip hovering a dial with no recipe context to floor against).
      */
-    public double euMultiplier(long baseDurationTicks) {
-        double matchedEuMultiplier = 1.0 / durationMultiplier(baseDurationTicks);
+    public double idealizedDurationMultiplier() {
+        return matchedDurationFactor() * excessDurationFactor();
+    }
+
+    /**
+     * EU/t multiplier, built from two independent lanes:
+     * <ul>
+     * <li>Matched (Speed≤Tuning): EU-neutral — cancels {@link #matchedDurationFactor()} exactly, so a balanced
+     * Speed=Tuning climb leaves total EU per craft unchanged, same as always.</li>
+     * <li>Speed &gt; Tuning (true overclock): vanilla-style and lossy — {@code 1/excessDurationFactor()^2}, the
+     * same EU-to-duration relationship every other OC step in this mod already uses (duration half → EU
+     * quadruple), so 2 excess PU reproduces a single vanilla OC step exactly.</li>
+     * <li>Speed &lt; Tuning (efficiency): unaffected by the above — the separate, pre-existing EU discount with
+     * no duration effect, floored at {@link #EU_DELTA_FLOOR}. Vanilla has no equivalent mechanic to anchor
+     * this lane to, so it's left exactly as it was before this rework.</li>
+     * </ul>
+     */
+    public double euMultiplier() {
+        double matchedEuMultiplier = 1.0 / matchedDurationFactor();
+        if (speedPU >= tuningPU) {
+            double excessDurationFactor = excessDurationFactor();
+            return matchedEuMultiplier / (excessDurationFactor * excessDurationFactor);
+        }
         double effectiveEuDelta = Math.max(speedPU - tuningPU, EU_DELTA_FLOOR);
-        double imbalanceEuMultiplier = Math.pow(2, effectiveEuDelta);
-        return matchedEuMultiplier * imbalanceEuMultiplier;
+        return matchedEuMultiplier * Math.pow(2, effectiveEuDelta);
     }
 
     /**

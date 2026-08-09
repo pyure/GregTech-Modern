@@ -71,13 +71,6 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
     private static final int COLOR_DANGER = 0xFFD9534F;
     private static final int COLOR_NOT_READY = 0xFF5C716F;
 
-    // Idealized (non-floored, non-rounded) mirror of PowerDistributionConfig's own DURATION_CUT/EU_DELTA_FLOOR —
-    // deliberately duplicated, not shared: tooltips show the continuous formula since no recipe/base-duration is
-    // necessarily known at hover time, while the real modifier applies the per-recipe integer-tick floor
-    // (durationMultiplier(baseDurationTicks)/euMultiplier(baseDurationTicks)). Keep in sync if those change.
-    private static final double TOOLTIP_DURATION_CUT = 0.75;
-    private static final double TOOLTIP_EU_DELTA_FLOOR = -3;
-
     private final SimpleTieredMachine machine;
     // client-side display copy; updated via writeInitialData / readUpdateInfo
     private PowerDistributionConfig clientConfig;
@@ -179,9 +172,14 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
         };
     }
 
+    // Both tooltips read straight off PowerDistributionConfig's own real formula (idealizedDurationMultiplier()/
+    // euMultiplier(), neither needs a baseDurationTicks/recipe in hand — see their javadoc) rather than keeping
+    // a locally-duplicated copy of the curve constants, which is what used to live here and is exactly the kind
+    // of thing that drifts out of sync the next time the curve changes.
+
     private List<Component> getSpeedTooltip() {
         int pu = clientConfig.getSpeedPU();
-        double durationMultiplier = Math.pow(TOOLTIP_DURATION_CUT, pu - 2);
+        double durationMultiplier = clientConfig.idealizedDurationMultiplier();
         return List.of(
                 Component.translatable("gtceu.power_distribution.speed"),
                 Component.translatable("gtceu.power_distribution.speed.tooltip_live", pu, format2(durationMultiplier)));
@@ -189,9 +187,7 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
 
     private List<Component> getTuningTooltip() {
         int pu = clientConfig.getTuningPU();
-        double idealizedDurationMultiplier = Math.pow(TOOLTIP_DURATION_CUT, clientConfig.getSpeedPU() - 2);
-        double effectiveEuDelta = Math.max(clientConfig.getSpeedPU() - pu, TOOLTIP_EU_DELTA_FLOOR);
-        double euMultiplier = (1.0 / idealizedDurationMultiplier) * Math.pow(2, effectiveEuDelta);
+        double euMultiplier = clientConfig.euMultiplier();
         return List.of(
                 Component.translatable("gtceu.power_distribution.tuning"),
                 Component.translatable("gtceu.power_distribution.tuning.tooltip_live", pu, format2(euMultiplier)));

@@ -89,7 +89,7 @@ public class GTRecipeModifiers {
         }
 
         double durMult = pd.durationMultiplier(recipe.duration);
-        double euMult = pd.euMultiplier(recipe.duration);
+        double euMult = pd.euMultiplier();
 
         long baseEUt = RecipeHelper.getRealEUt(recipe).getTotalEU();
         if (baseEUt * euMult > GTValues.VA[machineTier]) {
