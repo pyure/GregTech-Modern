@@ -173,24 +173,32 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
     }
 
     // Both tooltips read straight off PowerDistributionConfig's own real formula (idealizedDurationMultiplier()/
-    // euMultiplier(), neither needs a baseDurationTicks/recipe in hand — see their javadoc) rather than keeping
-    // a locally-duplicated copy of the curve constants, which is what used to live here and is exactly the kind
-    // of thing that drifts out of sync the next time the curve changes.
+    // euMultiplier()/idealizedTotalEuMultiplier(), none need a baseDurationTicks/recipe in hand — see their
+    // javadoc) rather than keeping a locally-duplicated copy of the curve constants, which is what used to live
+    // here and is exactly the kind of thing that drifts out of sync the next time the curve changes. Both
+    // tooltips also show the shared idealizedTotalEuMultiplier() alongside their own distinctive lever
+    // (Duration for Speed, Consumption Rate for Tuning) — that total isn't really "owned" by either dial, it's
+    // a joint consequence of wherever both currently sit, but showing it on both means a player gets the full
+    // cost picture from whichever dial they happen to hover, not just the one that changed it.
 
     private List<Component> getSpeedTooltip() {
         int pu = clientConfig.getSpeedPU();
         double durationMultiplier = clientConfig.idealizedDurationMultiplier();
+        double totalEuMultiplier = clientConfig.idealizedTotalEuMultiplier();
         return List.of(
                 Component.translatable("gtceu.power_distribution.speed"),
-                Component.translatable("gtceu.power_distribution.speed.tooltip_live", pu, format2(durationMultiplier)));
+                Component.translatable("gtceu.power_distribution.speed.tooltip_live", pu,
+                        format2(durationMultiplier), format2(totalEuMultiplier)));
     }
 
     private List<Component> getTuningTooltip() {
         int pu = clientConfig.getTuningPU();
         double euMultiplier = clientConfig.euMultiplier();
+        double totalEuMultiplier = clientConfig.idealizedTotalEuMultiplier();
         return List.of(
                 Component.translatable("gtceu.power_distribution.tuning"),
-                Component.translatable("gtceu.power_distribution.tuning.tooltip_live", pu, format2(euMultiplier)));
+                Component.translatable("gtceu.power_distribution.tuning.tooltip_live", pu,
+                        format2(euMultiplier), format2(totalEuMultiplier)));
     }
 
     private List<Component> getPrimaryTooltip() {

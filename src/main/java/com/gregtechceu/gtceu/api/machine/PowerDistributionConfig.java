@@ -136,6 +136,22 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
     }
 
     /**
+     * Total EU per craft, as a multiplier against the recipe's unmodified total ({@code baseEUt × baseDuration}):
+     * {@code euMultiplier() × idealizedDurationMultiplier()}. Not attributable to either dial alone — it's a
+     * joint consequence of wherever Speed and Tuning currently sit — but it's the number that actually answers
+     * "how much does this config cost me overall," which neither {@link #euMultiplier()} (EU/t alone) nor
+     * {@link #idealizedDurationMultiplier()} (duration alone) answers by itself outside the matched-only case.
+     * Collapses to exactly {@code 1} when balanced (Speed=Tuning, EU-neutral), to the efficiency lane's own
+     * discount term alone when Tuning leads Speed (independent of whatever the matched climb is doing), and to
+     * {@code 1/excessDurationFactor()} when Speed leads Tuning (matching the vanilla-anchored "2 excess PU =
+     * total ×2" property). Continuous/unfloored, same caveat as {@link #idealizedDurationMultiplier()} — for
+     * GUI display, not per-recipe application.
+     */
+    public double idealizedTotalEuMultiplier() {
+        return euMultiplier() * idealizedDurationMultiplier();
+    }
+
+    /**
      * Primary Output curve: below the 2-PU baseline this is a flat reduction (1 PU = 50%, 0 PU = 0%);
      * at/above baseline it's {@code 1.0 + (pu - 2) * (bonusPercentPerPU / 100.0)} — a per-recipe/per-machine-type
      * configurable slope, since a >100% guaranteed output can be a material-duplication exploit on recipes
