@@ -1382,11 +1382,12 @@ public class LangHandler {
         provider.add("gtceu.power_distribution.title", "Power Distribution");
         provider.add("gtceu.power_distribution.tuning", "Tuning");
         provider.add("gtceu.power_distribution.tuning.short", "TUNING");
-        provider.add("gtceu.power_distribution.tuning.tooltip_live", "%s PU — EU/t ×%s");
+        provider.add("gtceu.power_distribution.tuning.tooltip_live",
+                "%s PU — Consumption Rate: ×%s | Total EU: ×%s");
         provider.add("gtceu.power_distribution.speed", "Machine Speed");
         provider.add("gtceu.power_distribution.speed.short", "SPEED");
         provider.add("gtceu.power_distribution.speed.tooltip_live",
-                "%s PU — Duration ×%s (before per-recipe tick rounding)");
+                "%s PU — Duration: ×%s | Total EU: ×%s (before per-recipe tick rounding)");
         provider.add("gtceu.power_distribution.primary", "Primary Output");
         provider.add("gtceu.power_distribution.primary.short", "OUTPUT");
         provider.add("gtceu.power_distribution.primary.tooltip_live_voided", "Primary output voided (0 PU)");

@@ -104,6 +104,22 @@ public class OverclockLogicTest {
                 // NBT has a schematic in it with an HV charged singleblock CR in it; 1t duration for the Power
                 // Distribution duration-floor tests
                 .buildRawRecipe());
+        CR_RECIPE_TYPE.getAdditionHandler().addStaging(CR_RECIPE_TYPE
+                .recipeBuilder(GTCEu.id("test_overclock_logic_8"))
+                .inputItems(new ItemStack(Items.EMERALD))
+                .outputItems(new ItemStack(Blocks.STONE))
+                .EUt(20)
+                .duration(16)
+                // NBT has a schematic in it with an HV charged singleblock CR in it. Deliberately a *low* EUt
+                // (unlike test_overclock_logic_7, which was tuned to land exactly on VA[HV]=480 at a 4x
+                // multiplier) — powerDistributionImbalanceDoublingTest's 4x multiplier is now computed via
+                // Math.pow(1/sqrt(2), 2) rather than the old flat Math.pow(2, 2), and unlike the old integer
+                // exponent, that's not guaranteed to land on exactly 4.0 (tiny floating-point drift either way
+                // is possible) — landing exactly on a hard ceiling is a real risk now, not just a tidy number,
+                // confirmed by this recipe's predecessor silently refusing to run at all under
+                // PD_AWARE_OC's voltage check once tried. 20 EUt gives real margin (20*4=80, nowhere near any
+                // real tier's VA[]) instead of gambling on an exact boundary.
+                .buildRawRecipe());
         LCR_RECIPE_TYPE.getAdditionHandler().completeStaging();
         CR_RECIPE_TYPE.getAdditionHandler().completeStaging();
     }
@@ -360,21 +376,30 @@ public class OverclockLogicTest {
         itemIn.setStackInSlot(0, new ItemStack(Items.IRON_INGOT));
         // Machine runs at its actual default Power Distribution config (speedPU=tuningPU=6, primaryPU=byproductPU=2
         // for HV — untouched here, this test intentionally exercises the out-of-the-box default). That default is
-        // NOT a no-op above LV: speedDelta = 6-2 = 4, so rawDuration = 16 * 0.75^4 = 5.0625, floored/rounded to 5
-        // ticks (1t to turn on, 5t to run). Since the default is balanced (speedPU==tuningPU), total EU per craft
-        // is preserved exactly: eut = 120 * (16/5) = 384, chargeUsed = 384*5 = 1920 = 120*16, matching
-        // powerDistributionBaselineTest's 1920 via the same flat-total-EU property.
+        // NOT a no-op above LV, and PowerDistributionConfig.euMultiplier() no longer cancels the *rounded* duration
+        // ratio (it did under the old single-curve formula, which is where a since-corrected first draft of these
+        // numbers came from) — it cancels the *unfloored* matchedDurationFactor(), so the two must be computed
+        // separately rather than derived from one another:
+        //   matchedPU = 6-2 = 4 (balanced, so this is the whole curve — excessPU = 0)
+        //   matchedDurationFactor = DURATION_CUT^4 = 0.88^2 = 0.7744
+        //   rawDuration = 16 * 0.7744 = 12.3904, round() -> 12 ticks (1t to turn on, 12t to run)
+        //   matchedEuMultiplier = 1/0.7744 = 1.291322...
+        //   eut = truncate(120 * 1.291322...) = truncate(154.9587) = 154 (ContentModifier.apply truncates via an
+        //     (int)/(long) cast, it does not round — confirmed against a live in-game truncation artifact elsewhere)
+        //   chargeUsed = 154 * 12 = 1848 — NOT 120*16=1920; the "balanced climb preserves total EU" property only
+        //     holds against the *unrounded* raw duration (12.3904, not the rounded 12), and on a short 16-tick
+        //     recipe like this one the gap between them is a real ~3.7%, not negligible tick-rounding noise.
         // Originally used test_overclock_logic_4 (EUt=V[HV]=512) and asserted unmodified duration/EU/t at "default"
         // — both wrong once Power Distribution existed: (1) 512 > VA[HV]=480 violates PD_AWARE_OC's voltage
         // ceiling even at an unmodified multiplier, and (2) the machine's default is not the formula's neutral
         // baseline for any tier above LV. Switched to test_overclock_logic_7 (EUt=VA[MV]=120) to fix both.
-        helper.succeedOnTickWhen(6, () -> {
+        helper.succeedOnTickWhen(13, () -> {
             helper.assertTrue(TestUtils.isItemStackEqual(
                     itemOut.getStackInSlot(0),
                     new ItemStack(Blocks.STONE, 1)),
                     "Singleblock CR didn't run recipe in correct time");
             long chargeUsed = originalCharge - energyContainer.getEnergyStored();
-            long chargeNeeded = GTValues.VA[GTValues.MV] * 16L;
+            long chargeNeeded = 1848L;
             helper.assertTrue(chargeUsed == chargeNeeded,
                     "Recipe didn't consume right amount, instead of " + chargeNeeded + " it used " + chargeUsed);
         });
@@ -418,14 +443,24 @@ public class OverclockLogicTest {
     }
 
     /**
-     * Verified property: a balanced Speed=Tuning climb preserves total EU per craft exactly. speedPU=tuningPU=7
-     * on a 16-tick/VA[MV]-EUt recipe gives duration=4 (round(16 * 0.75^5) = round(3.796875) = 4) and
-     * eut=480 (matchedEuMultiplier = 16/4 = 4 exactly, imbalance = 1 since balanced; 120*4=480=VA[HV] exactly,
-     * at the ceiling, not over it) — chosen specifically because both land on exact powers of 2, so
-     * 4 * 480 == 16 * 120 with zero floating-point risk. primaryPU is kept at 2 (not 1) deliberately —
-     * {@code PowerDistributionConfig.primaryMultiplier} halves a primaryPU=1 guaranteed output into a 50%-chance
-     * output (from the separate Primary/Byproduct output-split feature), which would make this test's item-stack
-     * assertion flaky for a reason unrelated to what it's actually verifying.
+     * Verified property: a balanced Speed=Tuning climb is EU-neutral against the *unrounded* raw duration —
+     * speedPU=tuningPU=7 on a 16-tick/VA[MV]-EUt recipe gives:
+     * <ul>
+     * <li>matchedPU = 7-2 = 5 (balanced, excessPU = 0, so this is the whole curve)</li>
+     * <li>matchedDurationFactor = DURATION_CUT^5 ≈ 0.726452, rawDuration = 16*0.726452 ≈ 11.623, round() -> 12
+     * ticks (1t to turn on, 12t to run)</li>
+     * <li>matchedEuMultiplier = 1/0.726452 ≈ 1.376545, eut = truncate(120*1.376545) = truncate(165.185) = 165
+     * ({@code ContentModifier.apply} truncates via an int/long cast, does not round)</li>
+     * <li>chargeUsed = 165*12 = 1980 — not 120*16=1920. Does <b>not</b> land on VA[HV]=480 or any other clean
+     * number the way the old 0.75-constant version of this test did; that was incidental to the old constant,
+     * not a load-bearing property. The "flat total EU" property this test verifies only holds exactly against
+     * the unrounded raw duration (11.623), not the rounded tick count (12) — the two differ by a small but, on
+     * a short 16-tick recipe, non-negligible amount (~3%), same caveat as {@link #overclockLogicHVPowerTest}.</li>
+     * </ul>
+     * primaryPU is kept at 2 (not 1) deliberately — {@code PowerDistributionConfig.primaryMultiplier} halves a
+     * primaryPU=1 guaranteed output into a 50%-chance output (from the separate Primary/Byproduct output-split
+     * feature), which would make this test's item-stack assertion flaky for a reason unrelated to what it's
+     * actually verifying.
      */
     @GameTest(template = "singleblock_charged_cr", batch = "OverclockLogic")
     public static void powerDistributionBalancedClimbFlatEuTest(GameTestHelper helper) {
@@ -442,31 +477,48 @@ public class OverclockLogicTest {
 
         long originalCharge = GTValues.V[GTValues.HV] * 64L;
         itemIn.setStackInSlot(0, new ItemStack(Items.IRON_INGOT));
-        // 1t to turn on, 4t to run the recipe (duration floored/rounded down from 16 to 4)
-        helper.succeedOnTickWhen(5, () -> {
+        // 1t to turn on, 12t to run the recipe (duration rounded from 16 to 12 — see the derivation in this
+        // method's doc comment)
+        helper.succeedOnTickWhen(13, () -> {
             helper.assertTrue(TestUtils.isItemStackEqual(itemOut.getStackInSlot(0), new ItemStack(Blocks.STONE, 1)),
-                    "Balanced climb didn't cut recipe duration to 4 ticks");
+                    "Balanced climb didn't cut recipe duration to 12 ticks");
             long chargeUsed = originalCharge - energyContainer.getEnergyStored();
-            long chargeNeeded = GTValues.VA[GTValues.MV] * 16L;
+            long chargeNeeded = 1980L;
             helper.assertTrue(chargeUsed == chargeNeeded,
-                    "Balanced climb didn't preserve total EU, instead of " + chargeNeeded + " it used " +
-                            chargeUsed);
+                    "Balanced climb didn't consume the expected total EU, instead of " + chargeNeeded +
+                            " it used " + chargeUsed);
         });
     }
 
     /**
-     * Verified property: each point of imbalance (speedPU - tuningPU) exactly doubles total EU. Holding
-     * speedPU at the literal baseline of 2 (so duration stays unmodified at 16 ticks, matchedEuMultiplier = 1
-     * exactly) and dropping tuningPU to 0 gives euDelta = 2, so imbalanceEuMultiplier = 2^2 = 4 exactly —
-     * eut = 480 (= VA[HV], at the ceiling not over it), four times {@link #powerDistributionBaselineTest}'s
-     * 120, with zero floating-point risk since duration never changes.
+     * Verified property (rewritten — the old premise below no longer holds, see the note at the bottom):
+     * pushing Speed 2 PU past Tuning, with Tuning pinned at the literal 2-baseline (so {@code matchedPU=0} and
+     * the matched lane contributes nothing at all), reproduces a single vanilla GT overclock step <b>exactly</b>:
+     * duration ×0.5, EU/t ×4, total energy ×2 — not ×4; {@code duration½ × EU×4 = ×2 total}, easy to mis-derive
+     * as ×4 if only the EU/t number is considered. On {@code test_overclock_logic_8} (EUt=20, duration=16):
+     * {@code excessDurationFactor = OC_CUT²} — theoretically exactly 0.5 (and {@code duration = 16×0.5 = 8}
+     * theoretically exact, since {@code matchedPU=0} means {@code matchedDurationFactor=1} exactly), but
+     * {@code OC_CUT = 1/sqrt(2)} is an irrational value's nearest double, so unlike the old formula's integer
+     * {@code Math.pow(2, delta)} exponents, nothing here is actually guaranteed bit-exact — deliberately using
+     * a low EUt (not {@code test_overclock_logic_7}'s {@code VA[MV]=120}, which lands the resulting eut exactly
+     * on {@code VA[HV]=480}) so a few ULPs of drift either way can't push the result over the voltage ceiling
+     * and silently refuse the recipe, which is exactly what happened when this test first tried reusing
+     * {@code test_overclock_logic_7} here — confirmed by the recipe simply never completing, not a wrong
+     * number.
+     * <p>
+     * <b>Old premise (pre-OC_CUT-rework), no longer true, kept here for context</b>: this test used to hold
+     * Speed at the literal baseline (2) and only lower Tuning, asserting duration stayed at 16 ticks and only
+     * EU/t changed, doubling per point of imbalance. Both halves of that are now false — Tuning falling below
+     * Speed's own baseline is itself a form of overclock and does affect duration (explicitly confirmed
+     * intentional via live user testing, see {@code plans/state.md}), and doubling now happens per 2-PU step
+     * to match vanilla, not per single PU.
      */
     @GameTest(template = "singleblock_charged_cr", batch = "OverclockLogic")
     public static void powerDistributionImbalanceDoublingTest(GameTestHelper helper) {
         SimpleTieredMachine machine = (SimpleTieredMachine) helper.getBlockEntity(new BlockPos(0, 1, 0));
         assert machine != null;
         machine.setRecipeType(CR_RECIPE_TYPE);
-        setPowerDistribution(machine, 0, 2, 7, 7);
+        setPowerDistribution(machine, 2, 4, 6, 4);
         NotifiableEnergyContainer energyContainer = (NotifiableEnergyContainer) machine
                 .getCapabilitiesFlat(IO.IN, EURecipeCapability.CAP).get(0);
         NotifiableItemStackHandler itemIn = (NotifiableItemStackHandler) machine
@@ -475,16 +527,18 @@ public class OverclockLogicTest {
                 .getCapabilitiesFlat(IO.OUT, ItemRecipeCapability.CAP).get(0);
 
         long originalCharge = GTValues.V[GTValues.HV] * 64L;
-        itemIn.setStackInSlot(0, new ItemStack(Items.IRON_INGOT));
-        // 1t to turn on, 16t to run the recipe (duration unmodified, only EU/t changes)
-        helper.succeedOnTickWhen(17, () -> {
+        itemIn.setStackInSlot(0, new ItemStack(Items.EMERALD));
+        // 1t to turn on, 8t to run the recipe (duration exactly halved, zero rounding — see doc comment).
+        // tuning=2, speed=4, primary=6, byproduct=4 -> spent=16=budget(HV) exactly (HV's budget is 16, not
+        // MV's 12 — the machine here is HV, per singleblock_charged_cr/originalCharge below).
+        helper.succeedOnTickWhen(9, () -> {
             helper.assertTrue(TestUtils.isItemStackEqual(itemOut.getStackInSlot(0), new ItemStack(Blocks.STONE, 1)),
-                    "2 points of imbalance changed recipe duration, should only affect EU/t");
+                    "2 excess PU didn't cut recipe duration to 8 ticks");
             long chargeUsed = originalCharge - energyContainer.getEnergyStored();
-            long chargeNeeded = GTValues.VA[GTValues.MV] * 16L * 4L;
+            long chargeNeeded = 640L;
             helper.assertTrue(chargeUsed == chargeNeeded,
-                    "2 points of imbalance didn't quadruple total EU, instead of " + chargeNeeded + " it used " +
-                            chargeUsed);
+                    "2 excess PU didn't reproduce a single vanilla OC step's total EU, instead of " + chargeNeeded +
+                            " it used " + chargeUsed);
         });
     }
 

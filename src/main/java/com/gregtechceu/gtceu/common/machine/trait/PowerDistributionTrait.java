@@ -156,15 +156,27 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
         // (unverified in this MUI2 build), close enough for a short "N/N PU" string.
         body.child(coloredText(this::barLabelText, COLOR_HEADER_TEXT).pos(BAR_X + 64, BAR_Y + 2).size(60, 10));
 
+        // Both tooltips read straight off PowerDistributionConfig's own real formula
+        // (idealizedDurationMultiplier()/euMultiplier()/idealizedTotalEuMultiplier(), none need a
+        // baseDurationTicks/recipe in hand — see their javadoc) rather than a locally-duplicated copy of the
+        // curve constants, which is what used to live here (a raw Math.pow(0.75, ...) literal, not even a named
+        // constant) and is exactly the kind of thing that drifts out of sync the next time the curve changes.
+        // Both tooltips also show the shared idealizedTotalEuMultiplier() alongside their own distinctive lever
+        // (Duration for Speed, Consumption Rate for Tuning) — that total isn't really "owned" by either dial,
+        // it's a joint consequence of wherever both currently sit, but showing it on both means a player gets
+        // the full cost picture from whichever dial they happen to hover, not just the one that changed it.
         body.child(createDialRow(syncManager, "speed", 1, 0,
                 powerDistribution::getSpeedPU, powerDistribution::setSpeedPU,
                 () -> Component.translatable("gtceu.power_distribution.speed.tooltip_live",
                         powerDistribution.getSpeedPU(),
-                        String.format("%.2f", Math.pow(0.75, powerDistribution.getSpeedPU() - 2)))));
+                        String.format("%.2f", powerDistribution.idealizedDurationMultiplier()),
+                        String.format("%.2f", powerDistribution.idealizedTotalEuMultiplier()))));
         body.child(createDialRow(syncManager, "tuning", 0, 1,
                 powerDistribution::getTuningPU, powerDistribution::setTuningPU,
                 () -> Component.translatable("gtceu.power_distribution.tuning.tooltip_live",
-                        powerDistribution.getTuningPU(), String.format("%.2f", idealizedEuMultiplier()))));
+                        powerDistribution.getTuningPU(),
+                        String.format("%.2f", powerDistribution.euMultiplier()),
+                        String.format("%.2f", powerDistribution.idealizedTotalEuMultiplier()))));
         body.child(createDialRow(syncManager, "primary", 0, 2,
                 powerDistribution::getPrimaryPU, powerDistribution::setPrimaryPU, this::primaryTooltip));
         body.child(createDialRow(syncManager, "byproduct", 0, 3,
@@ -287,11 +299,6 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
         if (spent == budget) return COLOR_SUCCESS;
         if (spent < budget) return COLOR_NOT_READY;
         return COLOR_DANGER;
-    }
-
-    private double idealizedEuMultiplier() {
-        double euDelta = Math.max(powerDistribution.getSpeedPU() - powerDistribution.getTuningPU(), -3);
-        return Math.pow(2, euDelta);
     }
 
     private Component primaryTooltip() {
