@@ -373,15 +373,15 @@ public class OverclockLogicTest {
         // ratio (it did under the old single-curve formula, which is where a since-corrected first draft of these
         // numbers came from) — it cancels the *unfloored* matchedDurationFactor(), so the two must be computed
         // separately rather than derived from one another:
-        //   matchedPU = 6-2 = 4 (balanced, so this is the whole curve — excessPU = 0)
-        //   matchedDurationFactor = DURATION_CUT^4 = 0.88^2 = 0.7744
-        //   rawDuration = 16 * 0.7744 = 12.3904, round() -> 12 ticks (1t to turn on, 12t to run)
-        //   matchedEuMultiplier = 1/0.7744 = 1.291322...
-        //   eut = truncate(120 * 1.291322...) = truncate(154.9587) = 154 (ContentModifier.apply truncates via an
-        //     (int)/(long) cast, it does not round — confirmed against a live in-game truncation artifact elsewhere)
-        //   chargeUsed = 154 * 12 = 1848 — NOT 120*16=1920; the "balanced climb preserves total EU" property only
-        //     holds against the *unrounded* raw duration (12.3904, not the rounded 12), and on a short 16-tick
-        //     recipe like this one the gap between them is a real ~3.7%, not negligible tick-rounding noise.
+        // matchedPU = 6-2 = 4 (balanced, so this is the whole curve — excessPU = 0)
+        // matchedDurationFactor = DURATION_CUT^4 = 0.88^2 = 0.7744
+        // rawDuration = 16 * 0.7744 = 12.3904, round() -> 12 ticks (1t to turn on, 12t to run)
+        // matchedEuMultiplier = 1/0.7744 = 1.291322...
+        // eut = truncate(120 * 1.291322...) = truncate(154.9587) = 154 (ContentModifier.apply truncates via an
+        // (int)/(long) cast, it does not round — confirmed against a live in-game truncation artifact elsewhere)
+        // chargeUsed = 154 * 12 = 1848 — NOT 120*16=1920; the "balanced climb preserves total EU" property only
+        // holds against the *unrounded* raw duration (12.3904, not the rounded 12), and on a short 16-tick
+        // recipe like this one the gap between them is a real ~3.7%, not negligible tick-rounding noise.
         // Originally used test_overclock_logic_4 (EUt=V[HV]=512) and asserted unmodified duration/EU/t at "default"
         // — both wrong once Power Distribution existed: (1) 512 > VA[HV]=480 violates PD_AWARE_OC's voltage
         // ceiling even at an unmodified multiplier, and (2) the machine's default is not the formula's neutral

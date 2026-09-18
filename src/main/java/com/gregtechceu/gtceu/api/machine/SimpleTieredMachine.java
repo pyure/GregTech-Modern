@@ -112,7 +112,7 @@ public class SimpleTieredMachine extends WorkableTieredMachine
     @Getter
     @Persisted
     @DescSynced
-    protected PowerDistributionConfig powerDistribution;
+    public PowerDistributionConfig powerDistribution;
 
     public SimpleTieredMachine(IMachineBlockEntity holder, int tier, Int2IntFunction tankScalingFunction,
                                Object... args) {
