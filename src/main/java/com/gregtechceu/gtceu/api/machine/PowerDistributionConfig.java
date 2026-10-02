@@ -37,6 +37,14 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
      * {@link #OC_CUT}/{@link #DURATION_CUT} and untouched by the vanilla-matching rework of the overclock lane.
      */
     private static final double EU_DELTA_FLOOR = -3;
+    /**
+     * Extra duration stretch per PU that Tuning leads Speed. Without it, trading Speed for Tuning only costs the
+     * matched lane's single {@link #DURATION_CUT} step per PU (~6.6%) while the efficiency lane halves EU/t per PU
+     * of lead, so e.g. 1/3 beat 2/2 on energy at almost no time cost. 1.16 puts a lead of 2 (1/3 at LV) at ~1.43x
+     * duration including the matched-lane step. Applies only when Tuning &gt; Speed, so balanced and overclock
+     * configs are unaffected.
+     */
+    private static final double LEAD_STRETCH = 1.16;
     /** 1 tick @ 20 tps — duration can never be reduced below this regardless of Speed. */
     private static final long MIN_DURATION_TICKS = 1;
 
@@ -88,6 +96,11 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
         return Math.pow(OC_CUT, Math.max(0, speedPU - tuningPU));
     }
 
+    /** Unfloored duration factor from Tuning leading Speed (efficiency lane's time cost); 1 when Speed &ge; Tuning. */
+    private double leadStretchFactor() {
+        return Math.pow(LEAD_STRETCH, Math.max(0, tuningPU - speedPU));
+    }
+
     /**
      * Duration multiplier from Speed alone: PU up to tuningPU (the "matched" portion, including all PU below
      * the 2-PU baseline, which stretch duration in reverse the same way regardless of Tuning) cut duration by
@@ -98,7 +111,7 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
      * the tick-rounding already accepted before this change.
      */
     public double durationMultiplier(long baseDurationTicks) {
-        double rawDuration = baseDurationTicks * matchedDurationFactor() * excessDurationFactor();
+        double rawDuration = baseDurationTicks * matchedDurationFactor() * excessDurationFactor() * leadStretchFactor();
         long duration = Math.max(MIN_DURATION_TICKS, Math.round(rawDuration));
         return duration / (double) baseDurationTicks;
     }
@@ -109,7 +122,7 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
      * recipe/base-duration in hand (e.g. a GUI tooltip hovering a dial with no recipe context to floor against).
      */
     public double idealizedDurationMultiplier() {
-        return matchedDurationFactor() * excessDurationFactor();
+        return matchedDurationFactor() * excessDurationFactor() * leadStretchFactor();
     }
 
     /**
@@ -142,7 +155,7 @@ public class PowerDistributionConfig implements INBTSerializable<CompoundTag> {
      * "how much does this config cost me overall," which neither {@link #euMultiplier()} (EU/t alone) nor
      * {@link #idealizedDurationMultiplier()} (duration alone) answers by itself outside the matched-only case.
      * Collapses to exactly {@code 1} when balanced (Speed=Tuning, EU-neutral), to the efficiency lane's own
-     * discount term alone when Tuning leads Speed (independent of whatever the matched climb is doing), and to
+     * discount term times {@link #leadStretchFactor()} when Tuning leads Speed (the lead's time cost), and to
      * {@code 1/excessDurationFactor()} when Speed leads Tuning (matching the vanilla-anchored "2 excess PU =
      * total ×2" property). Continuous/unfloored, same caveat as {@link #idealizedDurationMultiplier()} — for
      * GUI display, not per-recipe application.
