@@ -14,8 +14,10 @@ plugins {
 group = maven_group
 // Formats the mod version to include the loader, Minecraft version, and '-SNAPSHOT-<timestamp>' if enabled.
 boolean isSnapshot = System.getenv("SNAPSHOT")
-// Local fork naming (power_distribution_poc branch) — keep this line's own commit out of any future PR upstream.
-version = "${mod_version}.power_distribution_poc" + (isSnapshot ? "-SNAPSHOT" : "")
+// Local fork naming (Power Distribution fork builds) — keep this line's own commit out of any future PR upstream.
+// Bump pdBuild for each fork build handed to a playtest; the upstream base version stays untouched in front of it.
+def pdBuild = 1
+version = "${mod_version}-pd.${pdBuild}" + (isSnapshot ? "-SNAPSHOT" : "")
 boolean isCI = System.getenv("CI") != null
 
 java {
