@@ -10,7 +10,9 @@ import com.gregtechceu.gtceu.api.machine.SimpleTieredMachine;
 import com.gregtechceu.gtceu.api.machine.feature.IOverclockMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.CoilWorkableElectricMultiblockMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
+import com.gregtechceu.gtceu.api.recipe.DefectiveBonus;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
+import com.gregtechceu.gtceu.api.recipe.LoopRecipeList;
 import com.gregtechceu.gtceu.api.recipe.OverclockingLogic;
 import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.recipe.chance.logic.ChanceLogic;
@@ -105,9 +107,22 @@ public class GTRecipeModifiers {
         int primaryBonusPct = recipe.data.contains("primary_bonus_pct") ? recipe.data.getInt("primary_bonus_pct") :
                 recipe.recipeType.getPrimaryBonusPercentPerPU();
         double primaryMult = pd.primaryMultiplier(primaryBonusPct);
-        ModifierFunction result = ocModifier;
-        if (primaryMult != 1.0) {
+        // GTRecipe.copy() and the modifier builder share the recipe's data with the original; give this copy its own
+        // before anything is written to it
+        ModifierFunction result = ocModifier.andThen(GTRecipeModifiers::isolateRecipeData);
+        boolean loopRecipe = LoopRecipeList.isLoop(recipe.recipeType, recipe.id);
+        if (primaryMult > 1.0 && loopRecipe) {
+            // the part above the baseline is delivered as a defective bonus, not added to the normal outputs;
+            // an exempt recipe type gets no bonus at all
+            if (!recipe.recipeType.isLoopBonusExempt()) {
+                result = result.andThen(r -> applyLoopBonus(r, primaryMult));
+                result = result.andThen(r -> markBonusKind(r, DefectiveBonus.KIND_DEFECTIVE));
+            } else {
+                result = result.andThen(r -> markBonusKind(r, DefectiveBonus.KIND_NONE));
+            }
+        } else if (primaryMult != 1.0) {
             result = result.andThen(r -> applyPrimaryBonus(r, primaryMult));
+            if (primaryMult > 1.0) result = result.andThen(r -> markBonusKind(r, DefectiveBonus.KIND_CLEAN));
         }
 
         // Symmetric like the Speed/Power Draw curve: PU below 2 reduces yield below the recipe's base chance
@@ -123,6 +138,12 @@ public class GTRecipeModifiers {
         }
         return result;
     };
+
+    /** Records on the running recipe what kind of Primary bonus it carries, for the machine UI. */
+    private static GTRecipe markBonusKind(GTRecipe recipe, String kind) {
+        recipe.data.putString(DefectiveBonus.KIND_KEY, kind);
+        return recipe;
+    }
 
     private static GTRecipe applyYieldBoost(GTRecipe recipe, int yieldSlots) {
         Map<RecipeCapability<?>, List<Content>> newOutputs = new HashMap<>();
@@ -185,7 +206,7 @@ public class GTRecipeModifiers {
      * amount) — anything else (already-chanced/yield content, or an unrecognized/range-based ingredient) is
      * left unchanged.
      */
-    private static GTRecipe applyPrimaryBonus(GTRecipe recipe, double multiplier) {
+    public static GTRecipe applyPrimaryBonus(GTRecipe recipe, double multiplier) {
         Map<RecipeCapability<?>, List<Content>> newOutputs = new HashMap<>();
         boolean changed = false;
         for (var entry : recipe.outputs.entrySet()) {
@@ -218,6 +239,42 @@ public class GTRecipeModifiers {
         if (!changed) return recipe;
         recipe.outputs.clear();
         recipe.outputs.putAll(newOutputs);
+        return recipe;
+    }
+
+    /** Gives {@code recipe} its own copy of its data, so writing to it cannot change the shared original. */
+    public static GTRecipe isolateRecipeData(GTRecipe recipe) {
+        recipe.data = recipe.data.copy();
+        return recipe;
+    }
+
+    /**
+     * For a loop recipe: records the part of each guaranteed item output that a multiplier above 1 adds, as a defective
+     * bonus on the recipe's data (see {@link DefectiveBonus}), and leaves the normal outputs at their baseline.
+     * {@code floor(N * (m - 1))} is guaranteed, and the fractional remainder is one more unit at that chance. Fluid
+     * outputs, and outputs that are chanced or ranged, are left unchanged.
+     */
+    public static GTRecipe applyLoopBonus(GTRecipe recipe, double multiplier) {
+        var itemOutputs = recipe.outputs.get(com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability.CAP);
+        if (itemOutputs == null || multiplier <= 1.0) return recipe;
+        net.minecraft.nbt.ListTag records = null;
+        for (Content c : itemOutputs) {
+            boolean eligible = c.tierChanceBoost() == 0 && !c.isChanced();
+            if (!eligible || !(c.content() instanceof SizedIngredient sized) || sized.getAmount() <= 0) continue;
+            var stacks = sized.getItems();
+            if (stacks.length == 0 || stacks[0].isEmpty()) continue;
+            double target = sized.getAmount() * (multiplier - 1.0);
+            int guaranteed = (int) Math.floor(target + 1e-9);
+            double remainder = target - guaranteed;
+            int chance = remainder > 1e-6 ? (int) Math.round(remainder * ChanceLogic.getMaxChancedValue()) : 0;
+            if (guaranteed <= 0 && chance <= 0) continue;
+            if (records == null) {
+                recipe.data = recipe.data.copy();
+                records = new net.minecraft.nbt.ListTag();
+            }
+            records.add(DefectiveBonus.entry(stacks[0], guaranteed, chance));
+        }
+        if (records != null) recipe.data.put(DefectiveBonus.KEY, records);
         return recipe;
     }
 

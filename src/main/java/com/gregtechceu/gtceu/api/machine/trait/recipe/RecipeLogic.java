@@ -6,12 +6,14 @@ import com.gregtechceu.gtceu.api.capability.recipe.EURecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.machine.SimpleTieredMachine;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.feature.IRecipeLogicMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
 import com.gregtechceu.gtceu.api.machine.trait.MachineTrait;
 import com.gregtechceu.gtceu.api.recipe.ActionResult;
+import com.gregtechceu.gtceu.api.recipe.DefectiveBonus;
 import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
@@ -584,6 +586,7 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
             } finally {
                 DefectiveFlag.endMarkOutputs();
             }
+            deliverDefectiveBonus();
             // Don't ready the next recipe after finish if suspend is set
             // so that the modifiers won't be applied until re-starting.
             if (suspendAfterFinish) {
@@ -622,6 +625,14 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
                 isActive = false;
                 syncDataHolder.resyncAllFields();
             }
+        }
+    }
+
+    /** Delivers the defective bonus recorded on the finished recipe, if any (see {@link DefectiveBonus}). */
+    private void deliverDefectiveBonus() {
+        if (lastRecipe != null && lastRecipe.data.contains(DefectiveBonus.KEY) &&
+                getMachine() instanceof SimpleTieredMachine tiered && tiered.getGtLevel() != null) {
+            DefectiveBonus.deliver(tiered, lastRecipe, consumedDefective, tiered.getGtLevel().getRandom());
         }
     }
 
