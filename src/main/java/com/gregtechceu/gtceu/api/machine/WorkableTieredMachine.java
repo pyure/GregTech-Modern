@@ -132,7 +132,7 @@ public abstract class WorkableTieredMachine extends TieredEnergyMachine implemen
                         IO.IN));
         this.exportItems = attachTrait(
                 new NotifiableItemStackHandler(
-                        getDefinition().getOutputSize(ItemRecipeCapability.CAP, getRecipeTypes()),
+                        getItemOutputSlots(),
                         IO.OUT));
         this.importFluids = attachTrait(
                 new NotifiableFluidTank(getDefinition().getInputSize(FluidRecipeCapability.CAP, getRecipeTypes()),
@@ -156,6 +156,15 @@ public abstract class WorkableTieredMachine extends TieredEnergyMachine implemen
     public WorkableTieredMachine(BlockEntityCreationInfo info, int tier, boolean energyEmitter,
                                  Int2IntFunction tankScalingFunction) {
         this(info, tier, energyEmitter, new RecipeLogic(), tankScalingFunction);
+    }
+
+    /**
+     * The number of item output slots the default constructor creates. It is called from the constructor, so an
+     * override may read only the machine definition and recipe types, which are assigned by then, and must not
+     * touch any state of the subclass.
+     */
+    protected int getItemOutputSlots() {
+        return getDefinition().getOutputSize(ItemRecipeCapability.CAP, getRecipeTypes());
     }
 
     //////////////////////////////////////

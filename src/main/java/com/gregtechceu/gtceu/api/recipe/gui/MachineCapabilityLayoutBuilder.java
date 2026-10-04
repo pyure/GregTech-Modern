@@ -57,6 +57,14 @@ public interface MachineCapabilityLayoutBuilder {
                     .backgroundOverlay(layout.capabilityInfo(ItemRecipeCapability.CAP).getOverlay(io, 0));
             if (io == IO.IN) widget.inputColumn.child(slot);
             else widget.outputColumn.child(slot);
+            // the defective bonus slot (see SimpleTieredMachine): directly after the item output slot, take-only.
+            // Every machine type that has one has a single item output slot, so only this branch needs it.
+            if (io == IO.OUT && machine instanceof SimpleTieredMachine tiered && tiered.hasBonusSlot()) {
+                widget.outputColumn.child(new ItemSlot()
+                        .slot(new ModularSlot(itemHandler.storage, itemHandler.getSlots() - 1)
+                                .slotGroup(slotGroup)
+                                .accessibility(false, true)));
+            }
             return;
         }
 
