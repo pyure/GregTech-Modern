@@ -453,8 +453,7 @@ public final class OreRecipeHandler {
                 .recipeBuilder("centrifuge_" + material.getName() + "_dirty_dust_to_dust")
                 .inputItems(dustImpure, material)
                 .outputItems(dustStack)
-                .duration((int) (material.getMass() * 4)).EUt(24)
-                .primaryBonusPercent(5);
+                .duration((int) (material.getMass() * 4)).EUt(24);
 
         if (byproduct.hasProperty(PropertyKey.DUST)) {
             builder.chancedYieldOutput(TagPrefix.dust, byproduct, "1/9");
@@ -507,7 +506,6 @@ public final class OreRecipeHandler {
                 .chancedYieldOutput(TagPrefix.dust, byproductMaterial, "1/9")
                 .duration(100)
                 .EUt(5)
-                .primaryBonusPercent(5)
                 .save(provider);
 
         ORE_WASHER_RECIPES.recipeBuilder("wash_" + material.getName() + "_pure_dust_to_dust")
