@@ -13,6 +13,7 @@ import com.gregtechceu.gtceu.api.machine.feature.IRecipeLogicMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
 import com.gregtechceu.gtceu.api.recipe.ActionResult;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.recipe.modifier.ModifierFunction;
@@ -134,6 +135,10 @@ public class RecipeLogic extends MachineTrait implements IEnhancedManaged, IWork
     @Setter
     @Getter
     protected boolean suspendAfterFinish = false;
+    /** The running recipe consumed a defective item, so its item outputs are defective too. */
+    @Persisted
+    @Getter
+    protected boolean consumedDefective = false;
     @Getter
     protected final Map<RecipeCapability<?>, Object2IntMap<?>> chanceCaches = makeChanceCaches();
     protected TickableSubscription subscription;
@@ -396,8 +401,16 @@ public class RecipeLogic extends MachineTrait implements IEnhancedManaged, IWork
             isActive = false;
             return;
         }
-        var handledIO = handleRecipeIO(recipe, IO.IN);
+        DefectiveFlag.beginConsume();
+        ActionResult handledIO;
+        boolean sawDefective;
+        try {
+            handledIO = handleRecipeIO(recipe, IO.IN);
+        } finally {
+            sawDefective = DefectiveFlag.endConsume();
+        }
         if (handledIO.isSuccess()) {
+            consumedDefective = sawDefective;
             if (lastRecipe != null && !recipe.equals(lastRecipe)) {
                 chanceCaches.clear();
             }
@@ -510,7 +523,12 @@ public class RecipeLogic extends MachineTrait implements IEnhancedManaged, IWork
             runAttempt = 0;
             runDelay = 0;
             consecutiveRecipes++;
-            handleRecipeIO(lastRecipe, IO.OUT);
+            DefectiveFlag.beginMarkOutputs(consumedDefective);
+            try {
+                handleRecipeIO(lastRecipe, IO.OUT);
+            } finally {
+                DefectiveFlag.endMarkOutputs();
+            }
             // Don't ready the next recipe after finish if suspend is set
             // so that the modifiers won't be applied until re-starting.
             if (suspendAfterFinish) {

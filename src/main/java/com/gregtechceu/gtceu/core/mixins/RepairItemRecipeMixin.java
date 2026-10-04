@@ -1,8 +1,10 @@
 package com.gregtechceu.gtceu.core.mixins;
 
 import com.gregtechceu.gtceu.api.item.IGTTool;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
@@ -70,5 +72,12 @@ public abstract class RepairItemRecipeMixin extends CustomRecipe {
             return tool.get();
         }
         return original.call(item);
+    }
+
+    @Inject(method = "assemble(Lnet/minecraft/world/inventory/CraftingContainer;Lnet/minecraft/core/RegistryAccess;)Lnet/minecraft/world/item/ItemStack;",
+            at = @At("RETURN"))
+    private void gtceu$propagateDefective(CraftingContainer inv, RegistryAccess access,
+                                          CallbackInfoReturnable<ItemStack> cir) {
+        DefectiveFlag.propagateFromGrid(inv, cir.getReturnValue());
     }
 }

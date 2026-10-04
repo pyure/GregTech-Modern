@@ -34,6 +34,7 @@
         "xaeroworldmap.WorldMapSessionMixin"
     ],
     "mixins": [
+        "AbstractFurnaceBlockEntityMixin",
         "AnvilMenuMixin",
         "BlockBehaviourAccessor",
         "BlockMixin",
@@ -53,6 +54,8 @@
         "PotionBrewingAccessor",
         "PrimedTntAccessor",
         "RecipeManagerMixin",
+        "ShapedRecipeDefectiveMixin",
+        "ShapelessRecipeDefectiveMixin",
         "RepairItemRecipeMixin",
         "ServerChunkProviderMixin",
         "ServerGamePacketListenerImplAccessor",

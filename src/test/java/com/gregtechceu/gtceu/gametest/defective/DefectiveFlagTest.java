@@ -1,0 +1,446 @@
+package com.gregtechceu.gtceu.gametest.defective;
+
+import com.gregtechceu.gtceu.GTCEu;
+import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
+import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
+import com.gregtechceu.gtceu.api.machine.multiblock.WorkableMultiblockMachine;
+import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
+import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
+import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
+import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
+import com.gregtechceu.gtceu.common.item.IntCircuitBehaviour;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
+import com.gregtechceu.gtceu.gametest.util.TestUtils;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import static com.gregtechceu.gtceu.gametest.util.TestUtils.getMetaMachine;
+
+/**
+ * Checks for the "defective" item flag (see {@link DefectiveFlag}), run against the real wiremill and
+ * macerator-recycling recipes in a multiblock harness.
+ */
+@PrefixGameTestTemplate(false)
+@GameTestHolder(GTCEu.MOD_ID)
+public class DefectiveFlagTest {
+
+    private static final String BATCH = "DefectiveFlag";
+
+    private record Rig(WorkableMultiblockMachine controller, ItemBusPartMachine in1, ItemBusPartMachine out1) {
+
+        RecipeLogic logic() {
+            return controller.getRecipeLogic();
+        }
+
+        NotifiableItemStackHandler in() {
+            return in1.getInventory();
+        }
+
+        NotifiableItemStackHandler out() {
+            return out1.getInventory();
+        }
+    }
+
+    private static Rig rig(GameTestHelper helper, GTRecipeType type) {
+        WorkableMultiblockMachine controller = (WorkableMultiblockMachine) getMetaMachine(
+                helper.getBlockEntity(new BlockPos(1, 2, 0)));
+        TestUtils.formMultiblock(controller);
+        controller.setRecipeType(type);
+        return new Rig(controller,
+                (ItemBusPartMachine) getMetaMachine(helper.getBlockEntity(new BlockPos(2, 1, 0))),
+                (ItemBusPartMachine) getMetaMachine(helper.getBlockEntity(new BlockPos(0, 1, 0))));
+    }
+
+    private static ItemStack copperIngot() {
+        return ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Copper);
+    }
+
+    private static ItemStack copperWire(int count) {
+        return ChemicalHelper.get(TagPrefix.wireGtSingle, GTMaterials.Copper, count);
+    }
+
+    /** Runs the wiremill on one copper ingot (+circuit 1) and returns the rig after the output appeared. */
+    private static Rig runWiremill(GameTestHelper helper, ItemStack ingot) {
+        Rig rig = rig(helper, GTRecipeTypes.WIREMILL_RECIPES);
+        helper.assertTrue(rig.controller.isFormed(), "multiblock did not form");
+        rig.in().setStackInSlot(0, ingot);
+        rig.in().setStackInSlot(1, IntCircuitBehaviour.stack(1));
+        rig.logic().findAndHandleRecipe();
+        helper.assertTrue(rig.logic().isActive(), "wiremill recipe did not start");
+        for (int i = 0; i < 600 && rig.out().getStackInSlot(0).isEmpty(); i++) {
+            rig.logic().serverTick();
+        }
+        helper.assertFalse(rig.out().getStackInSlot(0).isEmpty(), "wiremill produced nothing");
+        return rig;
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void defectiveIngotMakesDefectiveWire(GameTestHelper helper) {
+        Rig rig = runWiremill(helper, DefectiveFlag.mark(copperIngot()));
+        ItemStack wire = rig.out().getStackInSlot(0);
+        helper.assertTrue(wire.getItem() == copperWire(1).getItem(), "wrong output item: " + wire);
+        helper.assertTrue(DefectiveFlag.isDefective(wire), "output of a defective input was not flagged: " + wire);
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void cleanIngotMakesCleanWire(GameTestHelper helper) {
+        Rig rig = runWiremill(helper, copperIngot());
+        ItemStack wire = rig.out().getStackInSlot(0);
+        helper.assertFalse(DefectiveFlag.isDefective(wire), "clean input produced a flagged output: " + wire);
+        helper.assertTrue(wire.getTag() == null, "clean output has stray NBT: " + wire.getTag());
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void macerateRecyclingRejectsDefectiveWire(GameTestHelper helper) {
+        Rig rig = rig(helper, GTRecipeTypes.MACERATOR_RECIPES);
+        rig.in().setStackInSlot(0, DefectiveFlag.mark(copperWire(2)));
+        rig.logic().findAndHandleRecipe();
+        helper.assertFalse(rig.logic().isActive(), "macerator accepted a defective wire (recycling not blocked)");
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void macerateRecyclingStillAcceptsCleanWire(GameTestHelper helper) {
+        Rig rig = rig(helper, GTRecipeTypes.MACERATOR_RECIPES);
+        rig.in().setStackInSlot(0, copperWire(2));
+        rig.logic().findAndHandleRecipe();
+        helper.assertTrue(rig.logic().isActive(), "macerator no longer accepts a clean wire");
+        ItemStack left = rig.in().getStackInSlot(0);
+        helper.assertTrue(left.getCount() == 1, "expected 1 wire left, got " + left);
+        helper.assertTrue(left.getTag() == null,
+                "NBT-predicate matching left stray NBT on a clean input stack: " + left.getTag());
+        helper.succeed();
+    }
+
+    // ---------------- crafting table ----------------
+
+    private static net.minecraft.world.inventory.CraftingContainer grid(
+                                                                        net.minecraft.world.item.crafting.Recipe<?> recipe,
+                                                                        boolean flagged) {
+        var menu = new net.minecraft.world.inventory.AbstractContainerMenu(null, -1) {
+
+            @Override
+            public ItemStack quickMoveStack(net.minecraft.world.entity.player.Player player, int index) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(net.minecraft.world.entity.player.Player player) {
+                return true;
+            }
+        };
+        var container = new net.minecraft.world.inventory.TransientCraftingContainer(menu, 3, 3);
+        int slot = 0;
+        for (var ingredient : recipe.getIngredients()) {
+            if (!ingredient.isEmpty() && ingredient.getItems().length > 0 && slot < 9) {
+                ItemStack stack = ingredient.getItems()[0].copy();
+                container.setItem(slot, flagged ? DefectiveFlag.mark(stack) : stack);
+            }
+            slot++;
+        }
+        return container;
+    }
+
+    private static net.minecraft.world.item.crafting.CraftingRecipe firstCraftingRecipe(GameTestHelper helper,
+                                                                                        Class<?> exactClass) {
+        for (var recipe : helper.getLevel().getServer().getRecipeManager().getRecipes()) {
+            if (recipe.getClass() == exactClass &&
+                    recipe instanceof net.minecraft.world.item.crafting.CraftingRecipe c &&
+                    !c.getIngredients().isEmpty() && c.getIngredients().size() <= 9) {
+                return c;
+            }
+        }
+        throw new IllegalStateException("no " + exactClass.getSimpleName() + " found");
+    }
+
+    private static void craftingCase(GameTestHelper helper, Class<?> recipeClass) {
+        var recipe = firstCraftingRecipe(helper, recipeClass);
+        var access = helper.getLevel().registryAccess();
+        ItemStack dirty = recipe.assemble(grid(recipe, true), access);
+        helper.assertTrue(DefectiveFlag.isDefective(dirty), recipeClass.getSimpleName() + " " + recipe.getId() +
+                ": defective ingredient did not flag the result: " + dirty);
+        ItemStack clean = recipe.assemble(grid(recipe, false), access);
+        helper.assertFalse(DefectiveFlag.isDefective(clean),
+                recipeClass.getSimpleName() + " " + recipe.getId() + ": clean ingredients produced a flagged result");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void shapedCraftingPropagates(GameTestHelper helper) {
+        craftingCase(helper, net.minecraft.world.item.crafting.ShapedRecipe.class);
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void shapelessCraftingPropagates(GameTestHelper helper) {
+        craftingCase(helper, net.minecraft.world.item.crafting.ShapelessRecipe.class);
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void gtEnergyTransferCraftingPropagates(GameTestHelper helper) {
+        craftingCase(helper, com.gregtechceu.gtceu.api.recipe.ShapedEnergyTransferRecipe.class);
+    }
+
+    // ---------------- vanilla furnace ----------------
+
+    private static final BlockPos FURNACE_POS = new BlockPos(0, 1, 0);
+
+    private static net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace(GameTestHelper helper,
+                                                                                             ItemStack input) {
+        helper.setBlock(FURNACE_POS, net.minecraft.world.level.block.Blocks.FURNACE);
+        var be = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) helper
+                .getBlockEntity(FURNACE_POS);
+        be.setItem(0, input);
+        be.setItem(1, new ItemStack(net.minecraft.world.item.Items.COAL));
+        return be;
+    }
+
+    private static void smelt(GameTestHelper helper,
+                              net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity be, int ticks) {
+        for (int i = 0; i < ticks; i++) {
+            net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.serverTick(helper.getLevel(),
+                    be.getBlockPos(), be.getBlockState(), be);
+        }
+    }
+
+    private static ItemStack copperDust() {
+        return ChemicalHelper.get(TagPrefix.dust, GTMaterials.Copper);
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void furnaceFlagsDefectiveOutput(GameTestHelper helper) {
+        var be = furnace(helper, DefectiveFlag.mark(copperDust()));
+        smelt(helper, be, 260);
+        ItemStack out = be.getItem(2);
+        helper.assertFalse(out.isEmpty(), "furnace produced nothing from copper dust (no smelting recipe?)");
+        helper.assertTrue(DefectiveFlag.isDefective(out), "furnace output of a defective input is not flagged: " + out);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void furnaceKeepsCleanOutputClean(GameTestHelper helper) {
+        var be = furnace(helper, copperDust());
+        smelt(helper, be, 260);
+        ItemStack out = be.getItem(2);
+        helper.assertFalse(out.isEmpty(), "furnace produced nothing from copper dust");
+        helper.assertFalse(DefectiveFlag.isDefective(out), "clean input produced a flagged output");
+        helper.assertTrue(out.getTag() == null, "clean furnace output has stray NBT: " + out.getTag());
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void furnaceRefusesToMergeDefectiveIntoCleanStack(GameTestHelper helper) {
+        var probe = furnace(helper, copperDust());
+        smelt(helper, probe, 260);
+        ItemStack cleanIngot = probe.getItem(2).copy();
+        helper.assertFalse(cleanIngot.isEmpty(), "probe furnace produced nothing");
+        var be = furnace(helper, DefectiveFlag.mark(copperDust()));
+        be.setItem(2, cleanIngot.copy());
+        smelt(helper, be, 260);
+        ItemStack out = be.getItem(2);
+        helper.assertTrue(out.getCount() == cleanIngot.getCount() && !DefectiveFlag.isDefective(out),
+                "defective result merged into a clean stack: " + out);
+        helper.assertTrue(DefectiveFlag.isDefective(be.getItem(0)), "defective input should still be waiting");
+        helper.succeed();
+    }
+
+    // ---------------- GT electric furnace (proxied vanilla smelting recipes) ----------------
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void electricFurnaceFlagsDefectiveOutput(GameTestHelper helper) {
+        Rig rig = rig(helper, GTRecipeTypes.FURNACE_RECIPES);
+        rig.in().setStackInSlot(0, DefectiveFlag.mark(copperDust()));
+        rig.logic().findAndHandleRecipe();
+        helper.assertTrue(rig.logic().isActive(), "electric furnace did not pick up a smelting recipe for copper dust");
+        for (int i = 0; i < 600 && rig.out().getStackInSlot(0).isEmpty(); i++) {
+            rig.logic().serverTick();
+        }
+        ItemStack out = rig.out().getStackInSlot(0);
+        helper.assertFalse(out.isEmpty(), "electric furnace produced nothing");
+        helper.assertTrue(DefectiveFlag.isDefective(out), "electric furnace output not flagged: " + out);
+        helper.succeed();
+    }
+
+    // ---------------- tool-head replacement and tool repair ----------------
+
+    private static ItemStack electricDrill() {
+        return com.gregtechceu.gtceu.common.data.GTMaterialItems.TOOL_ITEMS
+                .get(GTMaterials.Steel, com.gregtechceu.gtceu.api.item.tool.GTToolType.DRILL_LV).get()
+                .get(100_000L, 100_000L);
+    }
+
+    private static net.minecraft.world.inventory.CraftingContainer gridOf(ItemStack... stacks) {
+        var menu = new net.minecraft.world.inventory.AbstractContainerMenu(null, -1) {
+
+            @Override
+            public ItemStack quickMoveStack(net.minecraft.world.entity.player.Player player, int index) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(net.minecraft.world.entity.player.Player player) {
+                return true;
+            }
+        };
+        var container = new net.minecraft.world.inventory.TransientCraftingContainer(menu, 3, 3);
+        for (int i = 0; i < stacks.length; i++) container.setItem(i, stacks[i]);
+        return container;
+    }
+
+    private static net.minecraft.world.item.crafting.CraftingRecipe recipeOfClass(GameTestHelper helper,
+                                                                                  Class<?> exactClass) {
+        for (var recipe : helper.getLevel().getServer().getRecipeManager().getRecipes()) {
+            if (recipe.getClass() == exactClass &&
+                    recipe instanceof net.minecraft.world.item.crafting.CraftingRecipe c) {
+                return c;
+            }
+        }
+        throw new IllegalStateException("no recipe of class " + exactClass.getSimpleName());
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void toolHeadReplacementPropagates(GameTestHelper helper) {
+        var recipe = recipeOfClass(helper, com.gregtechceu.gtceu.api.recipe.ToolHeadReplaceRecipe.class);
+        var access = helper.getLevel().registryAccess();
+        ItemStack head = ChemicalHelper.get(TagPrefix.toolHeadDrill, GTMaterials.Iron);
+
+        ItemStack dirty = recipe.assemble(gridOf(electricDrill(), DefectiveFlag.mark(head.copy())), access);
+        helper.assertFalse(dirty.isEmpty(), "tool head replacement produced nothing; check the test's stacks");
+        helper.assertTrue(DefectiveFlag.isDefective(dirty), "defective head did not flag the new tool: " + dirty);
+
+        ItemStack dirtyTool = recipe.assemble(gridOf(DefectiveFlag.mark(electricDrill()), head.copy()), access);
+        helper.assertTrue(DefectiveFlag.isDefective(dirtyTool), "defective tool did not flag the new tool");
+
+        ItemStack clean = recipe.assemble(gridOf(electricDrill(), head.copy()), access);
+        helper.assertFalse(clean.isEmpty(), "clean tool head replacement produced nothing");
+        helper.assertFalse(DefectiveFlag.isDefective(clean), "clean inputs produced a flagged tool");
+
+        // A grid with no result (only one stack) returns empty without throwing and flags nothing.
+        ItemStack none = recipe.assemble(gridOf(DefectiveFlag.mark(electricDrill())), access);
+        helper.assertTrue(none.isEmpty(), "a grid with no result should be empty, got " + none);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void toolRepairPropagates(GameTestHelper helper) {
+        var recipe = recipeOfClass(helper, net.minecraft.world.item.crafting.RepairItemRecipe.class);
+        var access = helper.getLevel().registryAccess();
+
+        ItemStack a = new ItemStack(net.minecraft.world.item.Items.IRON_PICKAXE);
+        a.setDamageValue(100);
+        ItemStack b = a.copy();
+
+        ItemStack dirty = recipe.assemble(gridOf(DefectiveFlag.mark(a.copy()), b.copy()), access);
+        helper.assertFalse(dirty.isEmpty(), "repair produced nothing; check the test's stacks");
+        helper.assertTrue(DefectiveFlag.isDefective(dirty), "repair with a defective tool was not flagged: " + dirty);
+
+        ItemStack clean = recipe.assemble(gridOf(a.copy(), b.copy()), access);
+        helper.assertFalse(clean.isEmpty(), "clean repair produced nothing");
+        helper.assertFalse(DefectiveFlag.isDefective(clean), "clean repair produced a flagged tool");
+
+        // Existing rule unchanged: two electric tools cannot be repaired together.
+        helper.assertFalse(recipe.matches(gridOf(electricDrill(), electricDrill()), helper.getLevel()),
+                "electric tools can now be repaired together");
+        helper.succeed();
+    }
+
+    // ---------------- fluid refusal rule ----------------
+
+    private static GTRecipeType FLUID_RULE_TYPE;
+
+    @net.minecraft.gametest.framework.BeforeBatch(batch = BATCH)
+    public static void prepareFluidRuleRecipes(net.minecraft.server.level.ServerLevel level) {
+        FLUID_RULE_TYPE = TestUtils.createRecipeType("defective_fluid_rule", 2, 2, 2, 2);
+        long eut = com.gregtechceu.gtceu.api.GTValues.VA[com.gregtechceu.gtceu.api.GTValues.HV];
+        FLUID_RULE_TYPE.getAdditionHandler().beginStaging();
+        // copper dust -> molten copper (solid in liquid form)
+        FLUID_RULE_TYPE.getAdditionHandler().addStaging(FLUID_RULE_TYPE
+                .recipeBuilder(GTCEu.id("defective_rule_solid"))
+                .inputItems(ChemicalHelper.get(TagPrefix.dust, GTMaterials.Copper))
+                .outputFluids(GTMaterials.Copper.getFluid(144))
+                .EUt(eut).duration(1).buildRawRecipe());
+        // tin dust -> iron ingot + oxygen (gas: allowed)
+        FLUID_RULE_TYPE.getAdditionHandler().addStaging(FLUID_RULE_TYPE
+                .recipeBuilder(GTCEu.id("defective_rule_gas"))
+                .inputItems(ChemicalHelper.get(TagPrefix.dust, GTMaterials.Tin))
+                .outputItems(ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Iron))
+                .outputFluids(GTMaterials.Oxygen.getFluid(1000))
+                .EUt(eut).duration(1).buildRawRecipe());
+        // nickel dust -> ranged molten copper (ranged output must not throw)
+        FLUID_RULE_TYPE.getAdditionHandler().addStaging(FLUID_RULE_TYPE
+                .recipeBuilder(GTCEu.id("defective_rule_ranged"))
+                .inputItems(ChemicalHelper.get(TagPrefix.dust, GTMaterials.Nickel))
+                .outputFluidsRanged(GTMaterials.Copper.getFluid(144),
+                        net.minecraft.util.valueproviders.UniformInt.of(100, 200))
+                .EUt(eut).duration(1).buildRawRecipe());
+        FLUID_RULE_TYPE.getAdditionHandler().completeStaging();
+    }
+
+    @GameTest(template = "empty", batch = BATCH)
+    public static void solidInLiquidFormClassification(GameTestHelper helper) {
+        var plasma = GTMaterials.Iron.getFluid(com.gregtechceu.gtceu.api.fluids.store.FluidStorageKeys.PLASMA);
+        helper.assertTrue(DefectiveFlag.isSolidInLiquidForm(GTMaterials.Copper.getFluid()), "molten copper");
+        helper.assertTrue(DefectiveFlag.isSolidInLiquidForm(GTMaterials.Cupronickel.getFluid()), "cupronickel liquid");
+        helper.assertFalse(DefectiveFlag.isSolidInLiquidForm(GTMaterials.Water.getFluid()), "water");
+        helper.assertFalse(DefectiveFlag.isSolidInLiquidForm(GTMaterials.Oxygen.getFluid()), "oxygen");
+        helper.assertFalse(DefectiveFlag.isSolidInLiquidForm(GTMaterials.HydrochloricAcid.getFluid()),
+                "hydrochloric acid");
+        helper.assertFalse(DefectiveFlag.isSolidInLiquidForm(GTMaterials.Helium.getFluid()), "helium");
+        helper.assertTrue(plasma != null, "test premise: iron has a plasma fluid");
+        helper.assertFalse(DefectiveFlag.isSolidInLiquidForm(plasma), "iron plasma");
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void defectiveItemRefusedWhenRecipeMakesMoltenFluid(GameTestHelper helper) {
+        Rig rig = rig(helper, FLUID_RULE_TYPE);
+        rig.in().setStackInSlot(0, DefectiveFlag.mark(copperDust()));
+        rig.logic().findAndHandleRecipe();
+        helper.assertFalse(rig.logic().isActive(), "a defective item was accepted by a recipe making molten fluid");
+        helper.assertTrue(rig.in().getStackInSlot(0).getCount() == 1, "the refused stack was touched");
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void cleanItemStillMakesMoltenFluid(GameTestHelper helper) {
+        Rig rig = rig(helper, FLUID_RULE_TYPE);
+        rig.in().setStackInSlot(0, copperDust());
+        rig.logic().findAndHandleRecipe();
+        helper.assertTrue(rig.logic().isActive(), "a clean item no longer runs the molten fluid recipe");
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void defectiveItemAllowedWhenRecipeMakesGas(GameTestHelper helper) {
+        Rig rig = rig(helper, FLUID_RULE_TYPE);
+        rig.in().setStackInSlot(0, DefectiveFlag.mark(ChemicalHelper.get(TagPrefix.dust, GTMaterials.Tin)));
+        rig.logic().findAndHandleRecipe();
+        helper.assertTrue(rig.logic().isActive(), "a defective item was refused by a recipe making only gas");
+        for (int i = 0; i < 10 && rig.out().getStackInSlot(0).isEmpty(); i++) rig.logic().serverTick();
+        ItemStack out = rig.out().getStackInSlot(0);
+        helper.assertFalse(out.isEmpty(), "the gas recipe produced no item");
+        helper.assertTrue(DefectiveFlag.isDefective(out),
+                "the item output of a defective input is not flagged: " + out);
+        helper.succeed();
+    }
+
+    @GameTest(template = "lcr_input_separation", batch = BATCH)
+    public static void rangedFluidOutputIsHandledWithoutThrowing(GameTestHelper helper) {
+        Rig dirty = rig(helper, FLUID_RULE_TYPE);
+        dirty.in().setStackInSlot(0, DefectiveFlag.mark(ChemicalHelper.get(TagPrefix.dust, GTMaterials.Nickel)));
+        dirty.logic().findAndHandleRecipe();
+        helper.assertFalse(dirty.logic().isActive(), "a defective item was accepted by a ranged molten fluid recipe");
+        dirty.in().setStackInSlot(0, ChemicalHelper.get(TagPrefix.dust, GTMaterials.Nickel));
+        dirty.logic().findAndHandleRecipe();
+        helper.assertTrue(dirty.logic().isActive(), "a clean item no longer runs the ranged fluid recipe");
+        helper.succeed();
+    }
+}

@@ -115,6 +115,7 @@ public class ToolHeadReplaceRecipe extends CustomRecipe {
                     .get().get(powerUnit.getCharge(), powerUnit.getMaxCharge());
             if (newTool == null) return ItemStack.EMPTY;
 
+            DefectiveFlag.propagateFromGrid(inv, newTool);
             return newTool;
         }
         return ItemStack.EMPTY;

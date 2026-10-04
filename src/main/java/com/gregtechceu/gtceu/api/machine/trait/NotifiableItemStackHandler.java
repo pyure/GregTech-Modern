@@ -5,6 +5,7 @@ import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.api.recipe.DummyCraftingContainer;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.ingredient.IntProviderIngredient;
@@ -147,17 +148,19 @@ public class NotifiableItemStackHandler extends NotifiableRecipeHandlerTrait<Ing
 
                 if (io == IO.IN) {
                     if (current.isEmpty()) continue;
-                    if (ingredient.test(current)) {
+                    if (ingredient.test(current) && !DefectiveFlag.rejects(recipe, current)) {
                         var extracted = getActioned(storage, slot, recipe.ingredientActions);
                         if (extracted == null) extracted = storage.extractItem(slot, Math.min(count, amount), simulate);
                         if (!extracted.isEmpty()) {
                             changed = true;
+                            if (!simulate) DefectiveFlag.noteConsumed(extracted);
                             visited[slot] = extracted.copyWithCount(count - extracted.getCount());
                         }
                         amount -= extracted.getCount();
                     }
                 } else { // IO.OUT
                     ItemStack output = items[0].copyWithCount(amount);
+                    if (DefectiveFlag.shouldMarkOutputs()) DefectiveFlag.mark(output);
                     // Only try this slot if not visited or if visited with the same type of item
                     if (visited[slot] == null || GTUtil.isSameItemSameTags(visited[slot], output)) {
                         if (count < output.getMaxStackSize() && count < storage.getSlotLimit(slot)) {
