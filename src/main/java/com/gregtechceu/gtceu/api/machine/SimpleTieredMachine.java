@@ -47,6 +47,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -72,6 +73,58 @@ public class SimpleTieredMachine extends WorkableTieredMachine
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(SimpleTieredMachine.class,
             WorkableTieredMachine.MANAGED_FIELD_HOLDER);
+
+    /**
+     * Recipe types whose electric machines get one extra item output slot, where the defective bonus is delivered.
+     * A fixed list on purpose: the slot count must be stable when a machine is built, whatever the loop list says.
+     * Steam machines are a different class and are not affected.
+     */
+    private static final Set<String> BONUS_SLOT_RECIPE_TYPES = Set.of("extruder", "fluid_solidifier",
+            "alloy_smelter", "bender", "compressor", "wiremill", "laser_engraver", "forge_hammer",
+            "electric_furnace", "assembler", "forming_press", "polarizer", "mixer", "distillery");
+
+    public static boolean hasBonusSlot(GTRecipeType type) {
+        return BONUS_SLOT_RECIPE_TYPES.contains(type.registryName.getPath());
+    }
+
+    public boolean hasBonusSlot() {
+        return hasBonusSlot(getRecipeType());
+    }
+
+    @Override
+    protected NotifiableItemStackHandler createExportItemHandler(Object... args) {
+        int slots = getRecipeType().getMaxOutputs(ItemRecipeCapability.CAP) + (hasBonusSlot() ? 1 : 0);
+        return new NotifiableItemStackHandler(this, slots, IO.OUT);
+    }
+
+    /**
+     * A machine saved before the extra slot existed loads with its old, smaller output inventory (the item handler
+     * adopts the size saved in NBT), so its extra slot widget would point at an existing slot and mirror it. Grows the
+     * inventory to the expected size, keeping every stack in place.
+     */
+    public void ensureExportSlotCount() {
+        int expected = getRecipeType().getMaxOutputs(ItemRecipeCapability.CAP) + (hasBonusSlot() ? 1 : 0);
+        var storage = exportItems.storage;
+        if (storage.getSlots() >= expected) return;
+        ItemStack[] old = new ItemStack[storage.getSlots()];
+        for (int i = 0; i < old.length; i++) old[i] = storage.getStackInSlot(i).copy();
+        storage.setSize(expected);
+        for (int i = 0; i < old.length; i++) storage.setStackInSlot(i, old[i]);
+    }
+
+    /**
+     * Puts a bonus stack into any output slot that accepts it (a defective stack only merges with defective
+     * stacks) and discards whatever does not fit. It never blocks or fails the recipe logic.
+     *
+     * @return the part that did not fit and was discarded
+     */
+    public ItemStack insertBonusOutput(ItemStack stack) {
+        ItemStack remaining = stack.copy();
+        for (int slot = 0; slot < exportItems.getSlots() && !remaining.isEmpty(); slot++) {
+            remaining = exportItems.insertItemInternal(slot, remaining, false);
+        }
+        return remaining;
+    }
 
     @Persisted
     @DescSynced
@@ -156,6 +209,7 @@ public class SimpleTieredMachine extends WorkableTieredMachine
     @Override
     public void onLoad() {
         super.onLoad();
+        ensureExportSlotCount();
         if (!isRemote()) {
             if (getLevel() instanceof ServerLevel serverLevel) {
                 serverLevel.getServer().tell(new TickTask(0, this::updateAutoOutputSubscription));
@@ -396,6 +450,34 @@ public class SimpleTieredMachine extends WorkableTieredMachine
                 batterySlot.setSelfPosition(new Position(group.getSize().width / 2 - 9, group.getSize().height - 18));
                 group.addWidget(batterySlot);
                 group.addWidget(template);
+                if (hasBonusSlot(recipeType)) {
+                    // below the rightmost slot of the recipe layout, which is the output slot
+                    Position outputSlot = null;
+                    for (var widget : template.getContainedWidgets(true)) {
+                        if (widget instanceof com.lowdragmc.lowdraglib.gui.widget.SlotWidget &&
+                                (outputSlot == null || widget.getPosition().x > outputSlot.x)) {
+                            outputSlot = widget.getPosition();
+                        }
+                    }
+                    if (outputSlot != null) {
+                        SlotWidget bonusSlot = createBonusSlot().createDefault();
+                        // below the output slot, else to its right (widening the panel), else left, else above;
+                        // never on top of another widget (the distillery has a fluid slot under its item slot)
+                        int[][] offsets = { { 0, 20 }, { 20, 0 }, { -20, 0 }, { 0, -20 } };
+                        for (int[] offset : offsets) {
+                            int x = outputSlot.x + offset[0];
+                            int y = outputSlot.y + offset[1];
+                            if (x < 0 || y < 0 || y + 18 > group.getSize().height) continue;
+                            if (overlapsAnyWidget(group, x, y, 18, 18)) continue;
+                            bonusSlot.setSelfPosition(new Position(x, y));
+                            group.addWidget(bonusSlot);
+                            if (x + 18 > group.getSize().width) {
+                                group.setSize(x + 18, group.getSize().height);
+                            }
+                            break;
+                        }
+                    }
+                }
 
                 // TODO fix this.
                 // if (ConfigHolder.INSTANCE.machines.ghostCircuit) {
@@ -423,9 +505,36 @@ public class SimpleTieredMachine extends WorkableTieredMachine
                                     Collections.emptyList(),
                                     false, false));
                     createBatterySlot().setupUI(template, tieredMachine);
+                    if (tieredMachine.hasBonusSlot()) {
+                        createBonusSlot().setupUI(template, tieredMachine);
+                    }
                     // createCircuitConfigurator().setupUI(template, tieredMachine);
                 }
             }));
+
+    /** @return whether the given rectangle overlaps any leaf widget (not a container) inside {@code group}. */
+    private static boolean overlapsAnyWidget(WidgetGroup group, int x, int y, int width, int height) {
+        for (var widget : group.getContainedWidgets(true)) {
+            if (widget instanceof WidgetGroup) continue;
+            int wx = widget.getPosition().x, wy = widget.getPosition().y;
+            int ww = widget.getSize().width, wh = widget.getSize().height;
+            if (x < wx + ww && wx < x + width && y < wy + wh && wy < y + height) return true;
+        }
+        return false;
+    }
+
+    /** The extra output slot where the defective bonus is delivered. */
+    protected static EditableUI<SlotWidget, SimpleTieredMachine> createBonusSlot() {
+        return new EditableUI<>("bonus_output_slot", SlotWidget.class, () -> {
+            var slotWidget = new SlotWidget();
+            slotWidget.setBackground(GuiTextures.SLOT);
+            return slotWidget;
+        }, (slotWidget, machine) -> {
+            slotWidget.setHandlerSlot(machine.exportItems.storage, machine.exportItems.getSlots() - 1);
+            slotWidget.setCanPutItems(false);
+            slotWidget.setCanTakeItems(true);
+        });
+    }
 
     /**
      * Create a battery slot widget.
