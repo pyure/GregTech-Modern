@@ -131,3 +131,21 @@ jacocoTestReport {
         }))
     }
 }
+// Regenerates src/main/resources/data/gtceu/loop_recipes.json, the list of recipes the loop audit found to be
+// material loops (see README "Loop list"). It runs the game test server with the audit switched on; the audit
+// writes the file. Run it after any change to recipes, recycling config defaults, or material data.
+tasks.register('regenerateLoopList') {
+    group = 'gtceu'
+    description = 'Regenerates data/gtceu/loop_recipes.json by running the loop audit in the game test server.'
+    dependsOn 'runGameTestServer'
+}
+gradle.taskGraph.whenReady { graph ->
+    if (graph.hasTask(':regenerateLoopList')) {
+        tasks.named('runGameTestServer') {
+            environment 'GT_OUTPUT_AUDIT', '1'
+            environment 'GT_LOOP_LIST_OUT', file('src/main/resources/data/gtceu/loop_recipes.json').absolutePath
+            // the other game tests may fail for unrelated reasons; only the generated file matters here
+            ignoreExitValue = true
+        }
+    }
+}

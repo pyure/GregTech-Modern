@@ -47,6 +47,24 @@ For contributing to this mod, the [Lombok plugin](https://plugins.jetbrains.com/
 Additionally, the [Minecraft Development plugin](https://plugins.jetbrains.com/plugin/8327-minecraft-development) is recommended.
 
 
+### Loop list (`data/gtceu/loop_recipes.json`)
+
+Some recipes form a material loop: their output can be turned back into their input by other recipes (for example ingot, wiremill, wire, macerator, dust, furnace, ingot). A free bonus output on such a recipe would be free material every lap, so Power Distribution delivers the bonus on these recipes as a *defective* item (it works as an ingredient but cannot be recycled).
+
+`src/main/resources/data/gtceu/loop_recipes.json` is the list of those recipes, grouped by recipe type. **It is generated, do not edit it by hand.** It is produced by the loop audit, a game test (`OutputLoopAuditTest`) that reads every recipe, converts items and fluids to element content, and looks for recipes whose outputs can be turned back into their inputs through other recipes (up to 4 steps, where a step counts if it keeps at least half the material it consumes; water, distilled water, lubricant and gases are not counted as consumed material).
+
+To regenerate it after changing recipes, material data or the default recycling yields:
+```
+./gradlew regenerateLoopList
+```
+This runs the game test server once with the audit switched on and rewrites the file. The output is sorted and carries no timestamps, so regenerating with nothing changed leaves no diff. The `_meta` block at the top of the file records the thresholds and recycling yields it was generated with. Other files from the same run are written to `run/gametest/gt_audit/` (per-recipe results, the fluid classification, and the reasons for unknown recipes).
+
+Things to know:
+- The game logs `Loop list: N entries loaded, M stale` at server start. A non-zero stale count means the file names recipes that no longer exist, so regenerate it.
+- A recipe that is not in the file is treated as not being a loop and gets an ordinary bonus. The audit does not look at crafting-table recipes, vanilla blasting recipes or the ore-processing chain (assumed safe).
+- The list is generated in dev mode, which forces `generateLowQualityGems` on, so it includes the chipped and flawed gem recipes (`engrave_*_gem_to_flawed_gem` and similar) that a default install does not have. They show up as stale entries (about 70) and are harmless. The `_meta` block records the value used.
+- The file is an ordinary data resource, so a datapack can replace it.
+
 ## Credited Works
 - Most textures are originally from [Gregtech: Refreshed](https://modrinth.com/resourcepack/gregtech-refreshed) by @ULSTICK. With some consistency edits and additions by @Ghostipedia.
 - Some textures are originally from the **[ZedTech GTCEu Resourcepack](https://github.com/brachy84/zedtech-ceu)**, with some changes made by the community.
