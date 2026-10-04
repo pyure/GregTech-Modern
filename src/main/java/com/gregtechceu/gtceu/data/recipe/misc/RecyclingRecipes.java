@@ -10,6 +10,7 @@ import com.gregtechceu.gtceu.api.data.chemical.material.stack.ItemMaterialInfo;
 import com.gregtechceu.gtceu.api.data.chemical.material.stack.MaterialEntry;
 import com.gregtechceu.gtceu.api.data.chemical.material.stack.MaterialStack;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTRecipeCategories;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
@@ -144,7 +145,7 @@ public class RecyclingRecipes {
             builder.category(GTRecipeCategories.MACERATOR_RECYCLING);
         }
 
-        builder.save(provider);
+        builder.addData(DefectiveFlag.NO_DEFECTIVE_INPUT, true).save(provider);
     }
 
     private static void registerExtractorRecycling(Consumer<FinishedRecipe> provider, ItemStack input,
@@ -184,7 +185,7 @@ public class RecyclingRecipes {
             } else {
                 builder.inputItems(inputTag);
             }
-            builder.save(provider);
+            builder.addData(DefectiveFlag.NO_DEFECTIVE_INPUT, true).save(provider);
 
             return;
         }
@@ -231,7 +232,7 @@ public class RecyclingRecipes {
             if (!outputStack.isEmpty()) extractorBuilder.outputItems(outputStack);
         }
 
-        extractorBuilder.save(provider);
+        extractorBuilder.addData(DefectiveFlag.NO_DEFECTIVE_INPUT, true).save(provider);
     }
 
     private static void registerArcRecycling(Consumer<FinishedRecipe> provider, ItemStack input,
@@ -266,7 +267,7 @@ public class RecyclingRecipes {
                         ms.material() == ms.material().getProperty(PropertyKey.INGOT).getArcSmeltingInto()) {
                     builder.category(GTRecipeCategories.ARC_FURNACE_RECYCLING);
                 }
-                builder.save(provider);
+                builder.addData(DefectiveFlag.NO_DEFECTIVE_INPUT, true).save(provider);
             }
             return;
         }
@@ -305,7 +306,7 @@ public class RecyclingRecipes {
             builder.category(GTRecipeCategories.ARC_FURNACE_RECYCLING);
         }
 
-        builder.save(provider);
+        builder.addData(DefectiveFlag.NO_DEFECTIVE_INPUT, true).save(provider);
     }
 
     private static boolean needsRecyclingCategory(@Nullable TagPrefix prefix, @NotNull MaterialStack inputStack,

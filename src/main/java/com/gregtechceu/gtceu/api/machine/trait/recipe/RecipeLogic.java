@@ -12,6 +12,7 @@ import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
 import com.gregtechceu.gtceu.api.machine.trait.MachineTrait;
 import com.gregtechceu.gtceu.api.recipe.ActionResult;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.registry.GTRegistries;
@@ -132,6 +133,10 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     @Getter
     @Setter
     protected boolean suspendAfterFinish = false;
+    /** The running recipe consumed a defective item, so its item outputs are defective too. */
+    @SaveField
+    @Getter
+    protected boolean consumedDefective = false;
     @Getter
     @SaveField(nbtKey = "chance_cache")
     protected final IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>> chanceCaches = makeChanceCaches();
@@ -445,8 +450,16 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
             syncDataHolder.resyncAllFields();
             return;
         }
-        var handledIO = handleRecipeIO(recipe, IO.IN);
+        DefectiveFlag.beginConsume();
+        ActionResult handledIO;
+        boolean sawDefective;
+        try {
+            handledIO = handleRecipeIO(recipe, IO.IN);
+        } finally {
+            sawDefective = DefectiveFlag.endConsume();
+        }
         if (handledIO.isSuccess()) {
+            consumedDefective = sawDefective;
             if (lastRecipe != null && !recipe.equals(lastRecipe)) {
                 chanceCaches.clear();
             }
@@ -565,7 +578,12 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
             runAttempt = 0;
             runDelay = 0;
             consecutiveRecipes++;
-            handleRecipeIO(lastRecipe, IO.OUT);
+            DefectiveFlag.beginMarkOutputs(consumedDefective);
+            try {
+                handleRecipeIO(lastRecipe, IO.OUT);
+            } finally {
+                DefectiveFlag.endMarkOutputs();
+            }
             // Don't ready the next recipe after finish if suspend is set
             // so that the modifiers won't be applied until re-starting.
             if (suspendAfterFinish) {
