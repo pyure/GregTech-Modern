@@ -12,6 +12,7 @@ import com.gregtechceu.gtceu.api.recipe.DefectiveBonus;
 import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.LoopRecipeList;
+import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.recipe.chance.logic.ChanceLogic;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.gregtechceu.gtceu.api.recipe.ingredient.FluidIngredient;
@@ -35,6 +36,7 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -342,6 +344,35 @@ public class BonusGenerationTest {
             helper.assertTrue(Math.abs(total - expected) <= 0.15 * expected,
                     "at " + m + " the bonus over 2,000 runs was " + total + ", expected about " + expected);
         }
+        helper.succeed();
+    }
+    // ---- upstream pre-rolls ----
+
+    /**
+     * {@code RecipeLogic.setupRecipe} now runs the recipe through {@code RecipeHelper.doPrerolls} and keeps that copy
+     * as the running (and later finishing) recipe. The bonus record and the kind marker live in the recipe's data, so
+     * they must survive it.
+     */
+    @GameTest(template = "empty", batch = BATCH)
+    public static void prerollKeepsBonusData(GameTestHelper helper) {
+        GTRecipe original = recipe(helper, STEEL_WIRE);
+        SimpleTieredMachine machine = place(helper, GTMachines.WIREMILL[GTValues.HV]);
+        dials(machine, 7, 2, 7, 0);
+        GTRecipe modified = machine.fullModifyRecipe(original.copy());
+        helper.assertTrue(modified != null, "the recipe was refused by the modifier");
+        helper.assertTrue(modified.data.contains(DefectiveBonus.KEY), "test premise: the bonus was recorded");
+        String kind = modified.data.getString(DefectiveBonus.KIND_KEY);
+        helper.assertTrue(!kind.isEmpty(), "test premise: the kind marker was recorded");
+        ListTag bonus = bonusOf(modified).copy();
+
+        GTRecipe rolled = RecipeHelper.doPrerolls(modified, new IdentityHashMap<>());
+        helper.assertTrue(rolled != modified, "test premise: doPrerolls returns a copy");
+        helper.assertTrue(rolled.data.contains(DefectiveBonus.KEY), "the bonus record was lost by doPrerolls");
+        helper.assertTrue(bonusOf(rolled).equals(bonus), "the bonus record changed: " + bonusOf(rolled));
+        helper.assertTrue(rolled.data.getString(DefectiveBonus.KIND_KEY).equals(kind),
+                "the kind marker changed or was lost by doPrerolls");
+        helper.assertTrue(itemOutputAmount(rolled) == itemOutputAmount(modified),
+                "doPrerolls changed the guaranteed output");
         helper.succeed();
     }
 }

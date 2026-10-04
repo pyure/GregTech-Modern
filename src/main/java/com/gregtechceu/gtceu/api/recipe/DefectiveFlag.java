@@ -49,9 +49,10 @@ public final class DefectiveFlag {
      * @return whether {@code recipe} must not consume {@code stack} because the stack is defective: the recipe is
      *         marked {@link #NO_DEFECTIVE_INPUT} (recycling), or it would turn the item into a fluid that is a solid in
      *         liquid form, which cannot carry the flag.
+     *         A null recipe (the handler is also used without one) never refuses.
      */
     public static boolean rejects(GTRecipe recipe, ItemStack stack) {
-        if (!isDefective(stack)) return false;
+        if (recipe == null || !isDefective(stack)) return false;
         return (recipe.data != null && recipe.data.getBoolean(NO_DEFECTIVE_INPUT)) ||
                 hasSolidInLiquidFormOutput(recipe);
     }
@@ -73,6 +74,7 @@ public final class DefectiveFlag {
 
     /** @return whether any fluid output of {@code recipe}, guaranteed, chanced or ranged, is a solid in liquid form. */
     public static boolean hasSolidInLiquidFormOutput(GTRecipe recipe) {
+        if (recipe == null) return false;
         var contents = recipe.outputs.get(FluidRecipeCapability.CAP);
         if (contents == null) return false;
         for (Content content : contents) {

@@ -480,4 +480,83 @@ public class DefectiveFlagTest {
         }
         helper.succeed();
     }
+    // ---------------- upstream interactions ----------------
+
+    /**
+     * Upstream's item handler accepts a null recipe (callers that only move items). A null recipe cannot be a
+     * recycling recipe, so a defective stack must pass the handler's input path and the refusal helpers must not
+     * throw on it.
+     */
+    @GameTest(template = "empty", batch = BATCH)
+    public static void nullRecipeIsNeverRefused(GameTestHelper helper) {
+        ItemStack defective = DefectiveFlag.mark(copperIngot());
+        helper.assertFalse(DefectiveFlag.rejects(null, defective), "a null recipe refused a defective stack");
+        helper.assertFalse(DefectiveFlag.hasSolidInLiquidFormOutput(null), "a null recipe has a solid-fluid output");
+
+        var recipe = GTRecipeTypes.WIREMILL_RECIPES.recipeBuilder(GTCEu.id("defective_null_recipe"))
+                .inputItems(copperIngot())
+                .outputItems(copperWire(2))
+                .EUt(com.gregtechceu.gtceu.api.GTValues.VA[com.gregtechceu.gtceu.api.GTValues.LV]).duration(1)
+                .buildRawRecipe();
+        var handler = new com.gregtechceu.gtceu.api.misc.ItemRecipeHandler(
+                com.gregtechceu.gtceu.api.capability.recipe.IO.IN, 1, null);
+        handler.storage.setStackInSlot(0, defective);
+        var left = new java.util.ArrayList<net.minecraft.world.item.crafting.Ingredient>();
+        for (var content : recipe.inputs.get(com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability.CAP)) {
+            left.add(com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability.CAP.of(content.content()));
+        }
+        var simulated = handler.handleRecipeInner(com.gregtechceu.gtceu.api.capability.recipe.IO.IN, null,
+                new java.util.ArrayList<>(left), true);
+        helper.assertTrue(simulated.isEmpty(), "the handler refused a defective stack when given a null recipe");
+        var executed = handler.handleRecipeInner(com.gregtechceu.gtceu.api.capability.recipe.IO.IN, null,
+                new java.util.ArrayList<>(left), false);
+        helper.assertTrue(executed.isEmpty() && handler.storage.getStackInSlot(0).isEmpty(),
+                "the defective stack was not consumed when given a null recipe");
+        helper.succeed();
+    }
+
+    /**
+     * Spoilage updates run over item handlers and write their own state onto stacks. A flagged stack must come out
+     * of {@code SpoilUtils.updateHandler} with its count and flag intact (a plain material stack with no other NBT at
+     * all), and two flagged stacks must still merge afterwards, also for a spoilable item that does carry spoilage
+     * state.
+     */
+    @GameTest(template = "empty", batch = BATCH)
+    public static void spoilageUpdateLeavesFlaggedStacksAlone(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var handler = new com.gregtechceu.gtceu.api.transfer.item.CustomItemStackHandler(3);
+        ItemStack ingots = DefectiveFlag.mark(copperIngot());
+        ingots.setCount(3);
+        handler.setStackInSlot(0, ingots);
+        ItemStack spoilable = DefectiveFlag.mark(
+                com.gregtechceu.gtceu.common.data.GTItems.SPOILABLE_1.get().getDefaultInstance().copyWithCount(4));
+        handler.setStackInSlot(1, spoilable);
+
+        com.gregtechceu.gtceu.api.item.component.SpoilUtils.updateHandler(handler, level, null, null);
+
+        ItemStack after = handler.getStackInSlot(0);
+        helper.assertTrue(after.getCount() == 3 && DefectiveFlag.isDefective(after),
+                "update changed a flagged material stack: " + after);
+        helper.assertTrue(after.getTag() != null && after.getTag().size() == 1,
+                "update added NBT to a flagged material stack: " + after.getTag());
+        ItemStack afterSpoilable = handler.getStackInSlot(1);
+        helper.assertTrue(afterSpoilable.getCount() == 4 && DefectiveFlag.isDefective(afterSpoilable) &&
+                afterSpoilable.getItem() == spoilable.getItem(),
+                "update changed or spoiled a flagged spoilable stack: " + afterSpoilable);
+
+        ItemStack more = DefectiveFlag.mark(copperIngot());
+        helper.assertTrue(handler.insertItem(0, more, false).isEmpty(), "second flagged stack did not merge");
+        helper.assertTrue(handler.getStackInSlot(0).getCount() == 4, "merged count is wrong after the update");
+        ItemStack moreSpoilable = DefectiveFlag.mark(
+                com.gregtechceu.gtceu.common.data.GTItems.SPOILABLE_1.get().getDefaultInstance());
+        com.gregtechceu.gtceu.api.item.component.SpoilUtils.updateHandler(
+                new com.gregtechceu.gtceu.api.transfer.item.CustomItemStackHandler(
+                        net.minecraft.core.NonNullList.of(ItemStack.EMPTY, moreSpoilable)),
+                level, null, null);
+        helper.assertTrue(
+                net.minecraftforge.items.ItemHandlerHelper.canItemStacksStack(handler.getStackInSlot(1),
+                        moreSpoilable),
+                "two flagged spoilable stacks no longer stack after the spoilage update");
+        helper.succeed();
+    }
 }

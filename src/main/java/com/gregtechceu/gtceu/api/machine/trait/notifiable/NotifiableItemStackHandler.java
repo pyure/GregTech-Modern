@@ -142,7 +142,7 @@ public class NotifiableItemStackHandler extends NotifiableRecipeHandlerTrait<Ing
                 if (io == IO.IN) {
                     if (current.isEmpty()) continue;
                     if (ingredient.test(current)) {
-                        if (recipe != null && DefectiveFlag.rejects(recipe, current)) {
+                        if (DefectiveFlag.rejects(recipe, current)) {
                             if (simulate) DefectiveFlag.noteRefusal();
                             continue;
                         }

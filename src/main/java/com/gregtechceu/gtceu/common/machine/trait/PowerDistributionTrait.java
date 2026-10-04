@@ -335,7 +335,9 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
     private List<Component> primaryTooltipLines() {
         var machine = (IRecipeLogicMachine) getMachine();
         var logic = machine.getRecipeLogic();
-        GTRecipe running = logic.isWorking() ? logic.getLastRecipe() : null;
+        // lastUnrolledRecipe, not lastRecipe: upstream no longer syncs lastRecipe to the client, and the unrolled copy
+        // is the modified recipe (it carries bonus_kind) as it was when the run started.
+        GTRecipe running = logic.isWorking() ? logic.getLastUnrolledRecipe() : null;
         String kind = running == null ? "" : running.data.getString(DefectiveBonus.KIND_KEY);
         if (kind.equals(DefectiveBonus.KIND_NONE)) {
             return List.of(Component.translatable("gtceu.power_distribution.primary.tooltip_recipe_none"));
