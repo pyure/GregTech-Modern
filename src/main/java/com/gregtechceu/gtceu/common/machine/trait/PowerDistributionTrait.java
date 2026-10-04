@@ -5,6 +5,8 @@ import com.gregtechceu.gtceu.api.machine.PowerDistributionConfig;
 import com.gregtechceu.gtceu.api.machine.feature.IRecipeLogicMachine;
 import com.gregtechceu.gtceu.api.machine.trait.MachineTrait;
 import com.gregtechceu.gtceu.api.machine.trait.feature.IAttachConfiguratorsTrait;
+import com.gregtechceu.gtceu.api.recipe.DefectiveBonus;
+import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 
 import net.minecraft.network.chat.Component;
@@ -28,6 +30,7 @@ import brachy.modularui.widgets.ProgressWidget;
 import brachy.modularui.widgets.layout.Flow;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
@@ -177,8 +180,8 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
                         powerDistribution.getTuningPU(),
                         String.format("%.2f", powerDistribution.euMultiplier()),
                         String.format("%.2f", powerDistribution.idealizedTotalEuMultiplier()))));
-        body.child(createDialRow(syncManager, "primary", 0, 2,
-                powerDistribution::getPrimaryPU, powerDistribution::setPrimaryPU, this::primaryTooltip));
+        body.child(createDialRowLines(syncManager, "primary", 0, 2,
+                powerDistribution::getPrimaryPU, powerDistribution::setPrimaryPU, this::primaryTooltipLines));
         body.child(createDialRow(syncManager, "byproduct", 0, 3,
                 powerDistribution::getByproductPU, powerDistribution::setByproductPU,
                 () -> Component.translatable("gtceu.power_distribution.byproduct.tooltip")));
@@ -200,6 +203,13 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
     private ParentWidget<?> createDialRow(PanelSyncManager syncManager, String key, int minValue, int rowIndex,
                                           IntSupplier getter, IntConsumer setter,
                                           Supplier<Component> tooltipSupplier) {
+        return createDialRowLines(syncManager, key, minValue, rowIndex, getter, setter,
+                () -> List.of(tooltipSupplier.get()));
+    }
+
+    private ParentWidget<?> createDialRowLines(PanelSyncManager syncManager, String key, int minValue, int rowIndex,
+                                               IntSupplier getter, IntConsumer setter,
+                                               Supplier<List<Component>> tooltipSupplier) {
         IntSyncValue dial = new IntSyncValue(getter, setter).allowC2S();
         syncManager.syncValue("pd_" + key, dial);
 
@@ -217,7 +227,7 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
                 .pos(MINI_BAR_X, MINI_BAR_Y)
                 .size(MINI_BAR_W, MINI_BAR_H)
                 .tooltipAutoUpdate(true);
-        miniBar.tooltipBuilder(t -> t.addLine(tooltipSupplier.get()));
+        miniBar.tooltipBuilder(t -> tooltipSupplier.get().forEach(t::addLine));
         row.child(miniBar);
 
         row.child(coloredText(() -> Component.literal(Integer.toString(dial.getIntValue())),
@@ -315,6 +325,29 @@ public class PowerDistributionTrait extends MachineTrait implements IAttachConfi
         }
         return Component.translatable("gtceu.power_distribution.primary.tooltip_live_bonus", primaryPU,
                 (primaryPU - 2) * bonusPerPU);
+    }
+
+    /**
+     * The Primary dial tooltip: the rate line, plus a note on what kind of bonus applies. While a recipe runs the
+     * note comes from the bonus_kind marker the Power Distribution modifier wrote on it (defective, none or clean);
+     * otherwise it is generic. The note only appears when Primary is above 2, where a bonus exists.
+     */
+    private List<Component> primaryTooltipLines() {
+        var machine = (IRecipeLogicMachine) getMachine();
+        var logic = machine.getRecipeLogic();
+        GTRecipe running = logic.isWorking() ? logic.getLastRecipe() : null;
+        String kind = running == null ? "" : running.data.getString(DefectiveBonus.KIND_KEY);
+        if (kind.equals(DefectiveBonus.KIND_NONE)) {
+            return List.of(Component.translatable("gtceu.power_distribution.primary.tooltip_recipe_none"));
+        }
+        Component rate = primaryTooltip();
+        if (powerDistribution.getPrimaryPU() <= 2 || kind.equals(DefectiveBonus.KIND_CLEAN)) return List.of(rate);
+        String noteKey = kind.equals(DefectiveBonus.KIND_DEFECTIVE) ?
+                "gtceu.power_distribution.primary.tooltip_recipe_defective" :
+                machine.getRecipeType().isLoopBonusExempt() ?
+                        "gtceu.power_distribution.primary.tooltip_generic_exempt" :
+                        "gtceu.power_distribution.primary.tooltip_generic_defective";
+        return List.of(rate, Component.translatable(noteKey));
     }
 
     private Component barLabelText() {

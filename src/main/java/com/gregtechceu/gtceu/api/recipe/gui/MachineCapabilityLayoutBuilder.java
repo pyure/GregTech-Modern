@@ -9,6 +9,8 @@ import com.gregtechceu.gtceu.api.machine.steam.SimpleSteamMachine;
 import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableFluidTank;
 import com.gregtechceu.gtceu.api.machine.trait.notifiable.NotifiableItemStackHandler;
 
+import net.minecraft.network.chat.Component;
+
 import brachy.modularui.value.sync.FluidSlotSyncHandler;
 import brachy.modularui.widgets.SlotGroupWidget;
 import brachy.modularui.widgets.slot.FluidSlot;
@@ -63,7 +65,9 @@ public interface MachineCapabilityLayoutBuilder {
                 widget.outputColumn.child(new ItemSlot()
                         .slot(new ModularSlot(itemHandler.storage, itemHandler.getSlots() - 1)
                                 .slotGroup(slotGroup)
-                                .accessibility(false, true)));
+                                .accessibility(false, true))
+                        .tooltipBuilder(
+                                t -> t.addLine(Component.translatable("gtceu.machine.bonus_output_slot.tooltip"))));
             }
             return;
         }

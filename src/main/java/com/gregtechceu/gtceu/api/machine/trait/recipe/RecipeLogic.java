@@ -303,11 +303,26 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     }
 
     public boolean checkMatchedRecipeAvailable(GTRecipe match) {
-        var modified = getRLMachine().fullModifyRecipe(match);
+        // a defective stack can be refused while the modifiers count how many parallel runs the inputs allow, or
+        // while the recipe is matched; either way the reason shown should say so
+        DefectiveFlag.beginRefusalWatch();
+        GTRecipe modified;
+        ActionResult recipeMatch = null;
+        boolean refused;
+        try {
+            modified = getRLMachine().fullModifyRecipe(match);
+            if (modified != null) recipeMatch = checkRecipe(modified);
+        } finally {
+            refused = DefectiveFlag.endRefusalWatch();
+        }
+        if (modified == null && refused) {
+            forceFailureReason(match, Component.translatable(DefectiveFlag.REFUSAL_LANG_KEY));
+        }
         if (modified != null) {
-            var recipeMatch = checkRecipe(modified);
             if (recipeMatch.isSuccess()) {
                 setupRecipe(modified);
+            } else if (refused) {
+                forceFailureReason(match, Component.translatable(DefectiveFlag.REFUSAL_LANG_KEY));
             } else {
                 recordFailureReason(match, recipeMatch.reason(), recipeMatch.score());
             }
@@ -772,6 +787,16 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
                 bestFailureRecipe = recipe;
             }
         }
+    }
+
+    /**
+     * Sets the reason to display whatever scores were recorded so far; used when a defective stack was refused,
+     * which is the most specific explanation there is.
+     */
+    protected void forceFailureReason(@Nullable GTRecipe recipe, Component reason) {
+        bestFailureScore = Double.POSITIVE_INFINITY;
+        bestFailureReason = reason;
+        bestFailureRecipe = recipe;
     }
 
     /** Forget the currently-displayed failure reason. */

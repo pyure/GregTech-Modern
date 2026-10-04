@@ -6,6 +6,7 @@ import com.gregtechceu.gtceu.api.block.BlockAttributes;
 import com.gregtechceu.gtceu.api.cosmetics.CapeRegistry;
 import com.gregtechceu.gtceu.api.item.tool.ToolHelper;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.client.renderer.AABBHighlightRenderer;
 import com.gregtechceu.gtceu.client.renderer.BlockHighlightRenderer;
 import com.gregtechceu.gtceu.client.renderer.PatternPreviewRenderer;
@@ -22,6 +23,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -147,6 +149,12 @@ public class ClientEventListener {
     @SubscribeEvent
     public static void onTooltipEvent(ItemTooltipEvent event) {
         TooltipsHandler.appendTooltips(event.getItemStack(), event.getFlags(), event.getToolTip());
+        String defectiveLabel = DefectiveFlag.labelKey(event.getItemStack());
+        if (defectiveLabel != null) {
+            event.getToolTip().add(Component.translatable(defectiveLabel).withStyle(ChatFormatting.RED));
+            event.getToolTip().add(Component.translatable(DefectiveFlag.NO_RECYCLE_LANG_KEY)
+                    .withStyle(ChatFormatting.GRAY));
+        }
     }
 
     @SubscribeEvent
