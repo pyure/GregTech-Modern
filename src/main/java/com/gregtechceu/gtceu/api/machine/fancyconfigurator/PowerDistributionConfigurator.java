@@ -6,6 +6,8 @@ import com.gregtechceu.gtceu.api.gui.widget.ColorBlockWidget;
 import com.gregtechceu.gtceu.api.gui.widget.FillBarWidget;
 import com.gregtechceu.gtceu.api.machine.PowerDistributionConfig;
 import com.gregtechceu.gtceu.api.machine.SimpleTieredMachine;
+import com.gregtechceu.gtceu.api.recipe.DefectiveBonus;
+import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib.gui.texture.ResourceTexture;
@@ -204,6 +206,12 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
     private List<Component> getPrimaryTooltip() {
         int pu = clientConfig.getPrimaryPU();
         int bonusPercentPerPU = machine.getRecipeType().getPrimaryBonusPercentPerPU();
+        GTRecipe running = machine.getRecipeLogic().isWorking() ? machine.getRecipeLogic().getLastRecipe() : null;
+        String kind = running == null || running.data == null ? "" : running.data.getString(DefectiveBonus.KIND_KEY);
+        if (kind.equals(DefectiveBonus.KIND_NONE)) {
+            return List.of(Component.translatable("gtceu.power_distribution.primary"),
+                    Component.translatable("gtceu.power_distribution.primary.tooltip_recipe_none"));
+        }
         Component name = Component.translatable("gtceu.power_distribution.primary");
         Component effect;
         if (bonusPercentPerPU == 0) {
@@ -215,6 +223,14 @@ public class PowerDistributionConfigurator implements IFancyConfigurator {
         } else {
             int bonusPercent = (pu - 2) * bonusPercentPerPU;
             effect = Component.translatable("gtceu.power_distribution.primary.tooltip_live_bonus", pu, bonusPercent);
+            if (!kind.equals(DefectiveBonus.KIND_CLEAN)) {
+                Component note = Component.translatable(kind.equals(DefectiveBonus.KIND_DEFECTIVE) ?
+                        "gtceu.power_distribution.primary.tooltip_recipe_defective" :
+                        machine.getRecipeType().isLoopBonusExempt() ?
+                                "gtceu.power_distribution.primary.tooltip_generic_exempt" :
+                                "gtceu.power_distribution.primary.tooltip_generic_defective");
+                return List.of(name, effect, note);
+            }
         }
         return List.of(name, effect);
     }

@@ -148,7 +148,11 @@ public class NotifiableItemStackHandler extends NotifiableRecipeHandlerTrait<Ing
 
                 if (io == IO.IN) {
                     if (current.isEmpty()) continue;
-                    if (ingredient.test(current) && !DefectiveFlag.rejects(recipe, current)) {
+                    if (ingredient.test(current)) {
+                        if (DefectiveFlag.rejects(recipe, current)) {
+                            if (simulate) DefectiveFlag.noteRefusal();
+                            continue;
+                        }
                         var extracted = getActioned(storage, slot, recipe.ingredientActions);
                         if (extracted == null) extracted = storage.extractItem(slot, Math.min(count, amount), simulate);
                         if (!extracted.isEmpty()) {

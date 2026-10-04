@@ -533,6 +533,7 @@ public class SimpleTieredMachine extends WorkableTieredMachine
             slotWidget.setHandlerSlot(machine.exportItems.storage, machine.exportItems.getSlots() - 1);
             slotWidget.setCanPutItems(false);
             slotWidget.setCanTakeItems(true);
+            slotWidget.setHoverTooltips(Component.translatable("gtceu.machine.bonus_output_slot.tooltip"));
         });
     }
 

@@ -1331,6 +1331,18 @@ public class LangHandler {
         provider.add("gtceu.power_distribution.primary.tooltip_live_bonus", "%s PU — +%s%% guaranteed primary yield");
         provider.add("gtceu.power_distribution.primary.tooltip_live_no_bonus",
                 "This machine's recipes have no Primary Output bonus");
+        provider.add("gtceu.power_distribution.primary.tooltip_generic_defective",
+                "Bonus items from recipes that can feed back into themselves are defective");
+        provider.add("gtceu.power_distribution.primary.tooltip_generic_exempt",
+                "Recipes that can feed back into themselves get no bonus on this machine");
+        provider.add("gtceu.power_distribution.primary.tooltip_recipe_defective",
+                "This recipe's bonus items are defective");
+        provider.add("gtceu.power_distribution.primary.tooltip_recipe_none",
+                "No Primary Output bonus for this recipe");
+        provider.add("gtceu.machine.bonus_output_slot.tooltip", "Bonus output: defective items");
+        provider.add("gtceu.recipe_logic.refuses_defective_input", "Recipe refuses defective input");
+        provider.add("gtceu.defective.label.defective", "Defective");
+        provider.add("gtceu.defective.no_recycle", "Cannot be recycled");
         provider.add("gtceu.power_distribution.byproduct", "Byproduct");
         provider.add("gtceu.power_distribution.byproduct.tooltip", "Boosts chanced byproduct outputs above 2");
         provider.add("gtceu.power_distribution.bar_tooltip.line1", "%s of %s PU allocated");

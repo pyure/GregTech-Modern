@@ -265,13 +265,27 @@ public class RecipeLogic extends MachineTrait implements IEnhancedManaged, IWork
     }
 
     public boolean checkMatchedRecipeAvailable(GTRecipe match) {
-        var modified = machine.fullModifyRecipe(match);
+        // a defective stack can be refused while the modifiers count how many parallel runs the inputs allow, or
+        // while the recipe is matched; either way the callout should say so
+        DefectiveFlag.beginRefusalWatch();
+        GTRecipe modified;
+        ActionResult recipeMatch = null;
+        boolean refused;
+        try {
+            modified = machine.fullModifyRecipe(match);
+            if (modified != null) recipeMatch = checkRecipe(modified);
+        } finally {
+            refused = DefectiveFlag.endRefusalWatch();
+        }
+        if (modified == null && refused) {
+            putFailureReason(this, match, Component.translatable(DefectiveFlag.REFUSAL_LANG_KEY));
+        }
         if (modified != null) {
-            var recipeMatch = checkRecipe(modified);
             if (recipeMatch.isSuccess()) {
                 setupRecipe(modified);
             } else {
-                putFailureReason(this, match, recipeMatch.reason());
+                putFailureReason(this, match, refused ? Component.translatable(DefectiveFlag.REFUSAL_LANG_KEY) :
+                        recipeMatch.reason());
             }
             if (lastRecipe != null && getStatus() == Status.WORKING) {
                 lastOriginRecipe = match;
