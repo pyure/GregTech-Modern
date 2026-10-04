@@ -99,7 +99,6 @@ public abstract class PipeBlockEntity<PipeType extends Enum<PipeType> & IPipeTyp
         return level == null ? offset : (level.getServer().getTickCount() + offset);
     }
 
-
     @Override
     public void setRemoved() {
         super.setRemoved();
