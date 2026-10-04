@@ -462,7 +462,7 @@ public class DefectiveFlagTest {
                 .buildRawRecipe();
         for (boolean defective : new boolean[] { false, true }) {
             var handler = new com.gregtechceu.gtceu.api.misc.ItemRecipeHandler(
-                    com.gregtechceu.gtceu.api.capability.recipe.IO.IN, 1);
+                    com.gregtechceu.gtceu.api.capability.recipe.IO.IN, 1, null);
             handler.storage.setStackInSlot(0, defective ? DefectiveFlag.mark(copperIngot()) : copperIngot());
             var left = new java.util.ArrayList<net.minecraft.world.item.crafting.Ingredient>();
             for (var content : recipe.inputs

@@ -467,7 +467,7 @@ public class OutputLoopAuditTest {
      */
     private static boolean isReagentFluid(net.minecraft.world.level.material.Fluid fluid) {
         Material material = ChemicalHelper.getMaterial(fluid);
-        if (material == null || material.isNull()) return false;
+        if (material == null) return false;
         if (material == com.gregtechceu.gtceu.common.data.GTMaterials.Water ||
                 material == com.gregtechceu.gtceu.common.data.GTMaterials.DistilledWater ||
                 material == com.gregtechceu.gtceu.common.data.GTMaterials.Lubricant) {
@@ -519,7 +519,7 @@ public class OutputLoopAuditTest {
         var fluid = stacks[0].getFluid();
         String key = "f:" + BuiltInRegistries.FLUID.getKey(fluid).getPath();
         Material m = ChemicalHelper.getMaterial(fluid);
-        if (m == null || m.isNull()) return new Held(key, null);
+        if (m == null) return new Held(key, null);
         boolean molten = m.hasProperty(PropertyKey.FLUID) && m.hasProperty(PropertyKey.DUST) &&
                 (m.getProperty(PropertyKey.FLUID).get(FluidStorageKeys.MOLTEN) == fluid ||
                         m.getProperty(PropertyKey.FLUID).get(FluidStorageKeys.LIQUID) == fluid);

@@ -12,6 +12,7 @@ import com.gregtechceu.gtceu.data.recipe.builder.GTRecipeBuilder;
 
 import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -409,9 +410,10 @@ public class MiscRecipeLoader {
         final int dyeAmount = 288;
 
         // skip white lens
-        for (int i = 1; i < CHEMICAL_DYES.length; i++) {
-            builder.copy(CHEMICAL_DYES[i].getName() + "_lens").inputFluids(CHEMICAL_DYES[i].getFluid(dyeAmount))
-                    .outputItems(GLASS_LENSES.get(COLORS[i]))
+        for (DyeColor color : DyeColor.values()) {
+            if (color == DyeColor.WHITE) continue;
+            builder.copy(color.getName() + "_lens").inputFluids(DYE_MATERIALS.get(color).getFluid(dyeAmount))
+                    .outputItems(GLASS_LENSES.get(color))
                     .save(provider);
         }
 
@@ -629,5 +631,10 @@ public class MiscRecipeLoader {
                 new MaterialEntry(gem, Lazurite));
         VanillaRecipeHelper.addShapelessRecipe(provider, "sodalite_to_dye", new ItemStack(Items.BLUE_DYE),
                 new MaterialEntry(gem, Sodalite));
+
+        POLARIZER_RECIPES.recipeBuilder("magnetize_golden_carrot")
+                .inputItems(Items.GOLDEN_CARROT)
+                .outputItems(MAGNETIC_GOLDEN_CARROT)
+                .duration(100).EUt(8).save(provider);
     }
 }

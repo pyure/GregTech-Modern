@@ -13,6 +13,7 @@ import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
 import com.gregtechceu.gtceu.api.machine.trait.MachineTrait;
 import com.gregtechceu.gtceu.api.recipe.ActionResult;
+import com.gregtechceu.gtceu.api.recipe.ConsumedInputsData;
 import com.gregtechceu.gtceu.api.recipe.DefectiveBonus;
 import com.gregtechceu.gtceu.api.recipe.DefectiveFlag;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
@@ -24,13 +25,10 @@ import com.gregtechceu.gtceu.api.sync_system.annotations.ClientFieldChangeListen
 import com.gregtechceu.gtceu.api.sync_system.annotations.RerenderOnChanged;
 import com.gregtechceu.gtceu.api.sync_system.annotations.SaveField;
 import com.gregtechceu.gtceu.api.sync_system.annotations.SyncToClient;
-import com.gregtechceu.gtceu.api.sync_system.data_transformers.ValueTransformer;
+import com.gregtechceu.gtceu.api.sync_system.data_transformers.gtceu.ChanceCacheTransformer;
 import com.gregtechceu.gtceu.common.cover.MachineControllerCover;
 import com.gregtechceu.gtceu.utils.GTMath;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.crafting.RecipeManager;
@@ -98,9 +96,12 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     @Nullable
     @Getter
     @SaveField
-    @SyncToClient
     protected GTRecipe lastRecipe;
-
+    @Nullable
+    @Getter
+    @SaveField
+    @SyncToClient
+    protected GTRecipe lastUnrolledRecipe;
     /**
      * safe, it is the origin recipe before {@link IRecipeLogicMachine#fullModifyRecipe(GTRecipe)}'
      * which can be found
@@ -111,17 +112,18 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     @SaveField
     protected GTRecipe lastOriginRecipe;
 
+    @Nullable
+    @Getter
+    protected GTRecipe startingRecipe;
+
     @Getter
     @SaveField
-    @SyncToClient
     protected int consecutiveRecipes = 0; // Consecutive recipes that have been run
 
     @SaveField
     @Getter
-    @SyncToClient
     protected int progress;
     @Getter
-    @SyncToClient
     @SaveField
     protected int duration;
     @Getter(onMethod_ = @VisibleForTesting)
@@ -169,6 +171,10 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
      */
     protected boolean alwaysTryModifyRecipe = true;
 
+    @Getter
+    @SaveField
+    protected ConsumedInputsData consumedInputs = new ConsumedInputsData();
+
     public RecipeLogic() {
         super();
     }
@@ -195,6 +201,7 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     public void resetRecipeLogic() {
         recipeDirty = false;
         lastRecipe = null;
+        lastUnrolledRecipe = null;
         lastOriginRecipe = null;
         consecutiveRecipes = 0;
         progress = 0;
@@ -234,7 +241,6 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
 
     public void setProgress(int progress) {
         this.progress = progress;
-        syncDataHolder.markClientSyncFieldDirty("progress");
     }
 
     public void setProgressDelta(int delta) {
@@ -348,7 +354,6 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
                 }
                 progress++;
                 totalContinuousRunningTime++;
-                syncDataHolder.markClientSyncFieldDirty("progress");
             } else {
                 setWaiting(handleTick.reason());
 
@@ -390,7 +395,6 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     protected void regressRecipe() {
         if (progress > 0 && regressWhenWaiting) {
             this.progress = 1;
-            syncDataHolder.markClientSyncFieldDirty("progress");
         }
     }
 
@@ -403,11 +407,12 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
         clearFailureReason();
 
         // try to execute last recipe if possible
-        GTRecipe last = lastRecipe;
+        GTRecipe last = lastUnrolledRecipe;
         if (!recipeDirty && last != null) {
             var lastCheck = checkRecipe(last);
             if (lastCheck.isSuccess()) {
                 lastRecipe = null;
+                lastUnrolledRecipe = null;
                 lastOriginRecipe = null;
                 setupRecipe(last);
                 recipeDirty = false;
@@ -418,9 +423,10 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
 
         // try to find and handle a new recipe
         lastRecipe = null;
+        lastUnrolledRecipe = null;
         lastOriginRecipe = null;
         handleSearchingRecipes(searchRecipe());
-        syncDataHolder.markClientSyncFieldDirty("lastRecipe");
+        syncDataHolder.markClientSyncFieldDirty("lastUnrolledRecipe");
         recipeDirty = false;
     }
 
@@ -450,10 +456,18 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
         var result = RecipeHelper.matchTickRecipe(getRLMachine(), recipe);
         if (!result.isSuccess()) return result;
 
-        result = handleTickRecipeIO(recipe, IO.IN);
+        if (lastUnrolledRecipe == null) {
+            GTCEu.LOGGER.warn("Last Displayed Recipe is null! Ingredients may roll incorrectly.");
+            this.lastUnrolledRecipe = lastRecipe.copy();
+            syncDataHolder.markClientSyncFieldDirty("lastUnrolledRecipe");
+            markLastRecipeDirty();
+        }
+        GTRecipe runningRecipe = RecipeHelper.doTickPrerolls(recipe, chanceCaches, lastUnrolledRecipe);
+
+        result = handleTickRecipeIO(runningRecipe, IO.IN);
         if (!result.isSuccess()) return result;
 
-        result = handleTickRecipeIO(recipe, IO.OUT);
+        result = handleTickRecipeIO(runningRecipe, IO.OUT);
         return result;
     }
 
@@ -467,27 +481,39 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
             syncDataHolder.resyncAllFields();
             return;
         }
+        if (lastRecipe != null && !recipe.equals(lastRecipe)) {
+            chanceCaches.clear();
+        }
+        lastUnrolledRecipe = recipe.copy();
+        syncDataHolder.markClientSyncFieldDirty("lastUnrolledRecipe");
+        GTRecipe runningRecipe = RecipeHelper.doPrerolls(recipe, chanceCaches);
+        startingRecipe = runningRecipe;
+        consumedInputs.clear();
         DefectiveFlag.beginConsume();
         ActionResult handledIO;
         boolean sawDefective;
         try {
-            handledIO = handleRecipeIO(recipe, IO.IN);
+            handledIO = handleRecipeIO(runningRecipe, IO.IN);
         } finally {
             sawDefective = DefectiveFlag.endConsume();
         }
         if (handledIO.isSuccess()) {
             consumedDefective = sawDefective;
-            if (lastRecipe != null && !recipe.equals(lastRecipe)) {
+            if (lastRecipe != null && !runningRecipe.equals(lastRecipe)) {
                 chanceCaches.clear();
             }
             clearFailureReason();
             recipeDirty = false;
-            lastRecipe = recipe;
+            lastRecipe = runningRecipe;
             setStatus(Status.WORKING);
             progress = 0;
-            duration = recipe.duration;
+            duration = runningRecipe.duration;
             isActive = true;
             syncDataHolder.resyncAllFields();
+        } else {
+            lastRecipe = null;
+            lastUnrolledRecipe = null;
+            syncDataHolder.markClientSyncFieldDirty("lastUnrolledRecipe");
         }
     }
 
@@ -612,6 +638,7 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
                 isActive = false;
                 // Force a recipe recheck.
                 lastRecipe = null;
+                lastUnrolledRecipe = null;
                 syncDataHolder.resyncAllFields();
                 return;
             }
@@ -622,7 +649,6 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
                         markLastRecipeDirty();
                     } else {
                         lastRecipe = modified;
-                        syncDataHolder.markClientSyncFieldDirty("lastRecipe");
                     }
                 } else {
                     markLastRecipeDirty();
@@ -646,8 +672,8 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     /** Delivers the defective bonus recorded on the finished recipe, if any (see {@link DefectiveBonus}). */
     private void deliverDefectiveBonus() {
         if (lastRecipe != null && lastRecipe.data.contains(DefectiveBonus.KEY) &&
-                getMachine() instanceof SimpleTieredMachine tiered && tiered.getGtLevel() != null) {
-            DefectiveBonus.deliver(tiered, lastRecipe, consumedDefective, tiered.getGtLevel().getRandom());
+                getMachine() instanceof SimpleTieredMachine tiered && tiered.getLevel() != null) {
+            DefectiveBonus.deliver(tiered, lastRecipe, consumedDefective, tiered.getLevel().getRandom());
         }
     }
 
@@ -668,8 +694,6 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
             setStatus(Status.IDLE);
             progress = 0;
             duration = 0;
-            syncDataHolder.markClientSyncFieldDirty("progress");
-            syncDataHolder.markClientSyncFieldDirty("duration");
         }
     }
 
@@ -710,60 +734,8 @@ public class RecipeLogic extends MachineTrait implements IWorkable {
     }
 
     static {
-        ClassSyncData.getClassData(RecipeLogic.class)
-                .setCustomTransformerForField("chanceCaches",
-                        new ValueTransformer<IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>>>() {
-
-                            @Override
-                            public Tag serializeNBT(IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>> value,
-                                                    TransformerContext<IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>>> context) {
-                                CompoundTag chanceCache = new CompoundTag();
-                                if (context.currentValue() == null) return chanceCache;
-
-                                context.currentValue().forEach((cap, cache) -> {
-                                    ListTag cacheTag = new ListTag();
-                                    for (var entry : cache.object2IntEntrySet()) {
-                                        CompoundTag compoundTag = new CompoundTag();
-                                        var obj = cap.contentToNbt(entry.getKey());
-                                        compoundTag.put("entry", obj);
-                                        compoundTag.putInt("cached_chance", entry.getIntValue());
-                                        cacheTag.add(compoundTag);
-                                    }
-                                    chanceCache.put(cap.id.toString(), cacheTag);
-                                });
-
-                                return chanceCache;
-                            }
-
-                            @Override
-                            public @Nullable IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>> deserializeNBT(Tag tag,
-                                                                                                                   TransformerContext<IdentityHashMap<RecipeCapability<?>, Object2IntMap<?>>> context) {
-                                CompoundTag chanceCache = ValueTransformer.assertTagType(CompoundTag.class, tag,
-                                        context);
-                                if (context.currentValue() != null) {
-                                    for (String key : chanceCache.getAllKeys()) {
-                                        RecipeCapability<?> cap = GTRegistries.RECIPE_CAPABILITIES.get(GTCEu.id(key));
-                                        // Necessary since a RecipeCapability was removed when removing Create support,
-                                        // and for future
-                                        // removals
-                                        if (cap == null) continue;
-                                        // noinspection rawtypes
-                                        Object2IntMap map = context.currentValue().computeIfAbsent(cap,
-                                                RecipeCapability::makeChanceCache);
-
-                                        ListTag chanceTag = chanceCache.getList(key, Tag.TAG_COMPOUND);
-                                        for (int i = 0; i < chanceTag.size(); ++i) {
-                                            CompoundTag chanceKey = chanceTag.getCompound(i);
-                                            var entry = cap.serializer.fromNbt(chanceKey.get("entry"));
-                                            int value = chanceKey.getInt("cached_chance");
-                                            // noinspection unchecked
-                                            map.put(entry, value);
-                                        }
-                                    }
-                                }
-                                return context.currentValue();
-                            }
-                        });
+        ClassSyncData.getClassData(RecipeLogic.class).setCustomTransformerForField("chanceCaches",
+                new ChanceCacheTransformer());
     }
 
     public static void putFailureReason(Object machine, GTRecipe recipe, Component reason) {

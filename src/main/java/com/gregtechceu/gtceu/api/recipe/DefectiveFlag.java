@@ -63,7 +63,7 @@ public final class DefectiveFlag {
      */
     public static boolean isSolidInLiquidForm(Fluid fluid) {
         Material material = ChemicalHelper.getMaterial(fluid);
-        if (material == null || material.isNull() || !material.hasProperty(PropertyKey.FLUID) ||
+        if (material == null || !material.hasProperty(PropertyKey.FLUID) ||
                 !material.hasProperty(PropertyKey.DUST)) {
             return false;
         }

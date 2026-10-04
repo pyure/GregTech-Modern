@@ -17,7 +17,6 @@ import com.gregtechceu.gtceu.api.fluids.store.FluidStorageKeys;
 import com.gregtechceu.gtceu.api.item.tool.MaterialToolTier;
 import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.gregtechceu.gtceu.api.registry.registrate.BuilderBase;
-import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMedicalConditions;
 import com.gregtechceu.gtceu.integration.kjs.helpers.MaterialStackWrapper;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
@@ -141,16 +140,12 @@ public final class Material implements Comparable<Material> {
         verifyMaterial();
     }
 
-    // thou shall not call
-    protected Material(ResourceLocation resourceLocation) {
-        materialInfo = new MaterialInfo(resourceLocation);
-        materialInfo.iconSet = MaterialIconSet.DULL;
-        properties = new MaterialProperties();
-        flags = new MaterialFlags();
+    private void registerMaterial() {
+        GTRegistries.MATERIALS.register(getResourceLocation(), this);
     }
 
-    protected void registerMaterial() {
-        GTRegistries.MATERIALS.register(getResourceLocation(), this);
+    public ResourceLocation getID() {
+        return materialInfo.resourceLocation;
     }
 
     public String getName() {
@@ -528,24 +523,23 @@ public final class Material implements Comparable<Material> {
         return materialInfo.resourceLocation.toString();
     }
 
-    // must be named multiply for GroovyScript to allow `material * quantity -> MaterialStack`
-    public MaterialStack multiply(long amount) {
-        return new MaterialStack(this, amount);
-    }
-
     public <T extends IMaterialProperty> boolean hasProperty(PropertyKey<T> key) {
         return properties.hasProperty(key);
     }
 
-    public <T extends IMaterialProperty> T getProperty(PropertyKey<T> key) {
+    public <T extends IMaterialProperty> @Nullable T getProperty(PropertyKey<T> key) {
         return properties.getProperty(key);
+    }
+
+    public <T extends IMaterialProperty> T getPropertyOrThrow(PropertyKey<T> key) {
+        return Objects.requireNonNull(getProperty(key), "Material missing %s property".formatted(key));
     }
 
     public <T extends IMaterialProperty> void removeProperty(PropertyKey<T> key) {
         properties.removeProperty(key);
     }
 
-    public <T extends IMaterialProperty> void setProperty(PropertyKey<T> key, IMaterialProperty property) {
+    public <T extends IMaterialProperty> void setProperty(PropertyKey<T> key, T property) {
         if (!GTRegistries.MATERIALS.canModifyMaterials()) {
             throw new IllegalStateException("Cannot add properties to a Material when registry is frozen!");
         }
@@ -566,10 +560,6 @@ public final class Material implements Comparable<Material> {
         flags.verify(this);
         this.chemicalFormula = calculateChemicalFormula();
         calculateDecompositionType();
-    }
-
-    public boolean isNull() {
-        return this == GTMaterials.NULL;
     }
 
     @RemapPrefixForJS("kjs$")
@@ -626,6 +616,22 @@ public final class Material implements Comparable<Material> {
             return this;
         }
 
+        /**
+         * Adds a property to this material.
+         */
+        public <T extends IMaterialProperty> Builder property(PropertyKey<T> key, T value) {
+            properties.setProperty(key, value);
+            return this;
+        }
+
+        /**
+         * Adds a property to this material
+         */
+        public <T extends IMaterialProperty> Builder property(PropertyKey<T> key) {
+            properties.ensureSet(key);
+            return this;
+        }
+
         /*
          * Material Types
          */
@@ -655,9 +661,7 @@ public final class Material implements Comparable<Material> {
          * @see FluidBuilder
          */
         public Builder fluid(@NotNull FluidStorageKey key, @NotNull FluidBuilder builder) {
-            properties.ensureSet(PropertyKey.FLUID);
-            FluidProperty property = properties.getProperty(PropertyKey.FLUID);
-            property.enqueueRegistration(key, builder);
+            properties.ensureSet(PropertyKey.FLUID).enqueueRegistration(key, builder);
             return this;
         }
 
@@ -1089,12 +1093,7 @@ public final class Material implements Comparable<Material> {
          *                 If this Material already had a Burn Time defined, it will be overridden.
          */
         public Builder burnTime(int burnTime) {
-            DustProperty prop = properties.getProperty(PropertyKey.DUST);
-            if (prop == null) {
-                dust();
-                prop = properties.getProperty(PropertyKey.DUST);
-            }
-            prop.setBurnTime(burnTime);
+            properties.ensureSet(PropertyKey.DUST).setBurnTime(burnTime);
             return this;
         }
 
@@ -1189,7 +1188,9 @@ public final class Material implements Comparable<Material> {
                             "Material in Components List is null for Material " + this.materialInfo.resourceLocation);
                 }
                 composition.add(new MaterialStack(
-                        components[i] instanceof CharSequence chars ? GTMaterials.get(chars.toString()) :
+                        components[i] instanceof CharSequence chars ?
+                                Objects.requireNonNull(GTRegistries.MATERIALS.get(chars.toString()),
+                                        "Unknown material: " + chars) :
                                 (Material) components[i],
                         ((Number) components[i + 1]).longValue()));
             }
@@ -1625,8 +1626,7 @@ public final class Material implements Comparable<Material> {
          *          of type LIQUID and no Fluid block.
          */
         public Builder washedIn(Material m) {
-            properties.ensureSet(PropertyKey.ORE);
-            properties.getProperty(PropertyKey.ORE).setWashedIn(m);
+            properties.ensureSet(PropertyKey.ORE).setWashedIn(m);
             return this;
         }
 
@@ -1641,8 +1641,7 @@ public final class Material implements Comparable<Material> {
          * @param washedAmount The amount of the above Fluid required to wash the Ore.
          */
         public Builder washedIn(Material m, int washedAmount) {
-            properties.ensureSet(PropertyKey.ORE);
-            properties.getProperty(PropertyKey.ORE).setWashedIn(m, washedAmount);
+            properties.ensureSet(PropertyKey.ORE).setWashedIn(m, washedAmount);
             return this;
         }
 
@@ -1656,8 +1655,7 @@ public final class Material implements Comparable<Material> {
          *          of this Material.
          */
         public Builder separatedInto(Material... m) {
-            properties.ensureSet(PropertyKey.ORE);
-            properties.getProperty(PropertyKey.ORE).setSeparatedInto(m);
+            properties.ensureSet(PropertyKey.ORE).setSeparatedInto(m);
             return this;
         }
 
@@ -1669,8 +1667,7 @@ public final class Material implements Comparable<Material> {
          * @param m The Material which should be output when smelting.
          */
         public Builder oreSmeltInto(Material m) {
-            properties.ensureSet(PropertyKey.ORE);
-            properties.getProperty(PropertyKey.ORE).setDirectSmeltResult(m);
+            properties.ensureSet(PropertyKey.ORE).setDirectSmeltResult(m);
             return this;
         }
 
@@ -1682,8 +1679,7 @@ public final class Material implements Comparable<Material> {
          * @param m The Material that this Material will be polarized into.
          */
         public Builder polarizesInto(Material m) {
-            properties.ensureSet(PropertyKey.INGOT);
-            properties.getProperty(PropertyKey.INGOT).setMagneticMaterial(m);
+            properties.ensureSet(PropertyKey.INGOT).setMagneticMaterial(m);
             return this;
         }
 
@@ -1695,8 +1691,7 @@ public final class Material implements Comparable<Material> {
          * @param m The Material that this Material will turn into in any Arc Furnace recipes.
          */
         public Builder arcSmeltInto(Material m) {
-            properties.ensureSet(PropertyKey.INGOT);
-            properties.getProperty(PropertyKey.INGOT).setArcSmeltingInto(m);
+            properties.ensureSet(PropertyKey.INGOT).setArcSmeltingInto(m);
             return this;
         }
 
@@ -1709,8 +1704,7 @@ public final class Material implements Comparable<Material> {
          * @param m The Material that this Material's Ingot should macerate directly into.
          */
         public Builder macerateInto(Material m) {
-            properties.ensureSet(PropertyKey.INGOT);
-            properties.getProperty(PropertyKey.INGOT).setMacerateInto(m);
+            properties.ensureSet(PropertyKey.INGOT).setMacerateInto(m);
             return this;
         }
 
@@ -1723,8 +1717,7 @@ public final class Material implements Comparable<Material> {
          * @param m The Material that this Material's Ingot should smelt directly into.
          */
         public Builder ingotSmeltInto(Material m) {
-            properties.ensureSet(PropertyKey.INGOT);
-            properties.getProperty(PropertyKey.INGOT).setSmeltingInto(m);
+            properties.ensureSet(PropertyKey.INGOT).setSmeltingInto(m);
             return this;
         }
 
@@ -1736,8 +1729,7 @@ public final class Material implements Comparable<Material> {
          * @param byproducts The list of Materials which serve as byproducts during ore processing.
          */
         public Builder addOreByproducts(Material... byproducts) {
-            properties.ensureSet(PropertyKey.ORE);
-            properties.getProperty(PropertyKey.ORE).setOreByProducts(byproducts);
+            properties.ensureSet(PropertyKey.ORE).setOreByProducts(byproducts);
             return this;
         }
 
@@ -1842,7 +1834,7 @@ public final class Material implements Comparable<Material> {
         public Builder addDefaultEnchant(Enchantment enchant, int level) {
             if (!properties.hasProperty(PropertyKey.TOOL)) // cannot assign default here
                 throw new IllegalArgumentException("Material cannot have an Enchant without Tools!");
-            properties.getProperty(PropertyKey.TOOL).addEnchantmentForTools(enchant, level);
+            properties.getPropertyOrThrow(PropertyKey.TOOL).addEnchantmentForTools(enchant, level);
             return this;
         }
 
@@ -1860,14 +1852,14 @@ public final class Material implements Comparable<Material> {
             if (!properties.hasProperty(HAZARD)) {
                 for (MaterialStack materialStack : materialInfo.componentList) {
                     Material material = materialStack.material();
-                    if (material.hasProperty(HAZARD) && material.getProperty(HAZARD).applyToDerivatives) {
+                    if (material.hasProperty(HAZARD) && material.getPropertyOrThrow(HAZARD).applyToDerivatives) {
                         properties.setProperty(HAZARD, material.getProperty(HAZARD));
                         break;
                     }
                 }
             }
             if (properties.hasProperty(HAZARD) &&
-                    properties.getProperty(HAZARD).hazardTrigger == HazardProperty.HazardTrigger.NONE) {
+                    properties.getPropertyOrThrow(HAZARD).hazardTrigger == HazardProperty.HazardTrigger.NONE) {
                 properties.removeProperty(HAZARD);
             }
 

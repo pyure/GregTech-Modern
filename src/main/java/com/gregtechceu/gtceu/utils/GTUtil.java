@@ -8,11 +8,11 @@ import com.gregtechceu.gtceu.api.recipe.category.GTRecipeCategory;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.gregtechceu.gtceu.core.mixins.emi.EmiApiAccessor;
 import com.gregtechceu.gtceu.core.mixins.jei.RecipesGuiAccessor;
+import com.gregtechceu.gtceu.data.pack.GTDynamicResourcePack;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.integration.recipeviewer.emi.recipe.GTRecipeEMICategory;
 import com.gregtechceu.gtceu.integration.recipeviewer.jei.GTJEIPlugin;
 import com.gregtechceu.gtceu.integration.recipeviewer.jei.recipe.GTRecipeJEICategory;
-import com.gregtechceu.gtceu.integration.recipeviewer.rei.recipe.GTRecipeREICategory;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
@@ -61,8 +61,6 @@ import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.screen.RecipeScreen;
 import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import me.shedaniel.rei.api.client.view.ViewSearchBuilder;
-import me.shedaniel.rei.api.common.category.CategoryIdentifier;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.runtime.IRecipesGui;
@@ -600,7 +598,7 @@ public class GTUtil {
 
     public static ItemStack loadItemStack(CompoundTag compoundTag) {
         try {
-            Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(compoundTag.getString("id")));
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(compoundTag.getString("id")));
             int count = compoundTag.getInt("Count");
             ItemStack stack = new ItemStack(item, count);
             if (compoundTag.contains("tag", Tag.TAG_COMPOUND)) {
@@ -751,15 +749,11 @@ public class GTUtil {
     }
 
     public static boolean textureResourceExists(@NotNull ResourceLocation location) {
-        var textureLocation = new ResourceLocation(location.getNamespace(),
-                "textures/%s.png".formatted(location.getPath()));
-        return resourceExists(textureLocation);
+        return resourceExists(GTDynamicResourcePack.TEXTURE_ID_CONVERTER.idToFile(location));
     }
 
     public static boolean modelResourceExists(@NotNull ResourceLocation location) {
-        var modelLocation = new ResourceLocation(location.getNamespace(),
-                "models/%s.json".formatted(location.getPath()));
-        return resourceExists(modelLocation);
+        return resourceExists(GTDynamicResourcePack.MODEL_ID_CONVERTER.idToFile(location));
     }
 
     public static void openRecipeViewerCategory(GTRecipeCategory category) {
@@ -767,8 +761,6 @@ public class GTUtil {
             EmiCallWrapper.openRecipeCategory(category);
         } else if (GTCEu.Mods.isJEILoaded()) {
             JeiCallWrapper.openRecipeCategory(category);
-        } else if (GTCEu.Mods.isREILoaded()) {
-            ReiCallWrapper.openRecipeCategory(category);
         }
     }
 
@@ -806,20 +798,6 @@ public class GTUtil {
                         .getRecipeCategory(GTRecipeJEICategory.machineType(category));
                 accessor.gtceu$getLogic().setRecipeCategory(specificCategory);
             }
-        }
-    }
-
-    private static class ReiCallWrapper {
-
-        public static void openRecipeCategory(GTRecipeCategory category) {
-            List<CategoryIdentifier<?>> categories = category.getRecipeType().getCategories().stream()
-                    .map(GTRecipeREICategory::machineCategory)
-                    .collect(Collectors.toList());
-            ViewSearchBuilder.builder()
-                    .addCategories(categories)
-                    // switch to the requested category if possible
-                    .setPreferredOpenedCategory(GTRecipeREICategory.machineCategory(category))
-                    .open();
         }
     }
 }
